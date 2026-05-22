@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gold: #C9A84C;
+  --base: #0a0a0a;
+  --surface: #111111;
+  --surface-raised: #1a1a1a;
+  --surface-border: #2a2a2a;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background-color: var(--base);
+    color: #ffffff;
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--base); }
+  ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-raised border border-surface-border rounded-card;
+  }
+
+  .pill {
+    @apply text-xs font-medium px-2.5 py-0.5 rounded-pill;
+  }
+
+  .pill-gold {
+    @apply pill bg-amber-950 text-gold-400;
+  }
+
+  .pill-green {
+    @apply pill bg-green-950 text-green-400;
+  }
+
+  .pill-blue {
+    @apply pill bg-blue-950 text-blue-400;
+  }
+
+  .pill-purple {
+    @apply pill;
+    background: #1a1028;
+    color: #c080e0;
+  }
+
+  .badge-verified {
+    @apply text-xs px-2 py-0.5 rounded-pill font-medium;
+    background: #1a1028;
+    color: #c080e0;
+  }
+
+  .btn-gold {
+    @apply bg-gold-400 text-black font-medium rounded-xl px-5 py-2.5 text-sm transition-all hover:bg-gold-200 active:scale-95;
+  }
+
+  .btn-outline {
+    @apply border border-surface-border text-gray-400 font-medium rounded-xl px-5 py-2.5 text-sm transition-all hover:bg-surface-raised hover:text-white active:scale-95;
+  }
+
+  .input-dark {
+    @apply w-full bg-surface-raised border border-surface-border rounded-xl px-4 py-3 text-white text-sm
+           placeholder-gray-600 focus:outline-none focus:border-gold-400 transition-colors;
+  }
+
+  .section-label {
+    @apply text-xs font-medium tracking-widest text-gray-500 uppercase;
+  }
+
+  .nav-link {
+    @apply text-sm text-gray-500 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-surface-raised;
+  }
+
+  .nav-link-active {
+    @apply text-sm text-white px-3 py-2 rounded-lg bg-surface-raised;
+  }
+
+  .map-placeholder {
+    @apply rounded-xl overflow-hidden bg-surface relative;
+    background: linear-gradient(135deg, #0d1a0d 0%, #0a0f0a 100%);
+  }
+
+  .route-line {
+    stroke-dasharray: 6 4;
+    animation: dashMove 1.5s linear infinite;
+  }
+
+  @keyframes dashMove {
+    to { stroke-dashoffset: -20; }
+  }
+}
+
+@layer utilities {
+  .text-gold { color: var(--gold); }
+  .bg-base { background-color: var(--base); }
+  .bg-surface { background-color: var(--surface); }
+  .bg-surface-raised { background-color: var(--surface-raised); }
+  .border-surface-border { border-color: var(--surface-border); }
+
+  .font-display { font-family: var(--font-display), Georgia, serif; }
+  .font-mono { font-family: var(--font-mono), monospace; }
+
+  .animate-fade-in { animation: fadeIn 0.3s ease forwards; }
+  .animate-slide-up { animation: slideUp 0.35s ease forwards; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+}
+
+/* Font definitions — loaded via Google Fonts in layout.tsx */
+:root {
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
