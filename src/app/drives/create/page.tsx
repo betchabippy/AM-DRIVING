@@ -101,8 +101,10 @@ export default function CreateDrivePage() {
     const res = await fetch(url)
     const data = await res.json()
     setLoadingSuggestions(false)
-    const places = data.features?.map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center })) ?? []
-    setMeetingSuggestions(places)
+    const places = (data.features ?? []).map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center }))
+    console.log('Places found:', places)
+    if (places.length > 0) setMeetingSuggestions(places)
+    setLoadingSuggestions(false)
   }
 
   const handlePublish = async () => {
