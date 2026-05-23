@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Compass, Car, Users, PlusCircle, Gauge, LogOut Flag } from 'lucide-react'
+import { Compass, Car, Users, PlusCircle, Gauge, LogOut, Flag } from 'lucide-react'
 import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
