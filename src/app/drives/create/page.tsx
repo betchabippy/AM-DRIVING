@@ -91,13 +91,20 @@ export default function CreateDrivePage() {
     }
     const key = process.env.NEXT_PUBLIC_FOURSQUARE_KEY
     const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
-    const url = 'https://api.foursquare.com/v3/places/search?query=' + encodeURIComponent(query) + '&ll=' + center[1] + ',' + center[0] + '&radius=100000&limit=6&fields=name,location'
-    const res = await fetch(url, { headers: { Authorization: key! } })
+    const params = new URLSearchParams({
+      query,
+      ll: center[1] + ',' + center[0],
+      radius: '100000',
+      limit: '6',
+      fields: 'name,location,geocodes'
+    })
+    const res = await fetch('https://api.foursquare.com/v3/places/search?' + params.toString(), {
+      headers: { Authorization: key!, Accept: 'application/json' }
+    })
     const data = await res.json()
     const places = (data.results ?? []).map((f: any) => ({
       name: f.name,
       address: [f.location?.address, f.location?.locality, f.location?.region].filter(Boolean).join(', '),
-      coords: [f.geocodes?.main?.longitude, f.geocodes?.main?.latitude]
     }))
     type === 'meeting' ? setMeetingSuggestions(places) : setDestSuggestions(places)
   }
@@ -108,13 +115,21 @@ export default function CreateDrivePage() {
     const key = process.env.NEXT_PUBLIC_FOURSQUARE_KEY
     const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
     const category = character === 'breakfast' ? '13000' : character === 'scenic' ? '16000' : '13000'
-    const url = 'https://api.foursquare.com/v3/places/search?ll=' + center[1] + ',' + center[0] + '&radius=50000&limit=6&categories=' + category + '&fields=name,location&sort=POPULARITY'
-    const res = await fetch(url, { headers: { Authorization: key! } })
+    const params = new URLSearchParams({
+      ll: center[1] + ',' + center[0],
+      radius: '50000',
+      limit: '6',
+      categories: category,
+      fields: 'name,location',
+      sort: 'POPULARITY'
+    })
+    const res = await fetch('https://api.foursquare.com/v3/places/search?' + params.toString(), {
+      headers: { Authorization: key!, Accept: 'application/json' }
+    })
     const data = await res.json()
     const places = (data.results ?? []).map((f: any) => ({
       name: f.name,
       address: [f.location?.address, f.location?.locality, f.location?.region].filter(Boolean).join(', '),
-      coords: [f.geocodes?.main?.longitude, f.geocodes?.main?.latitude]
     }))
     setMeetingSuggestions(places)
     setLoadingSuggestions(false)
@@ -333,10 +348,10 @@ export default function CreateDrivePage() {
             {meetingSuggestions.length > 0 && (
               <div className="mt-2 card divide-y divide-surface-border">
                 {meetingSuggestions.map((place, i) => (
-                  <button key={i} onClick={() => { setMeetingPoint(place.name + ', ' + place.address.split(',').slice(1).join(',')); setMeetingSuggestions([]) }}
+                  <button key={i} onClick={() => { setMeetingPoint(place.name + (place.address ? ', ' + place.address : '')); setMeetingSuggestions([]) }}
                     className="w-full text-left px-4 py-3 hover:bg-surface-hover transition-colors">
                     <div className="text-sm text-white font-medium">{place.name}</div>
-                    <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>
+                    {place.address && <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>}
                   </button>
                 ))}
               </div>
@@ -361,10 +376,10 @@ export default function CreateDrivePage() {
               {destSuggestions.length > 0 && (
                 <div className="mt-2 card divide-y divide-surface-border">
                   {destSuggestions.map((place, i) => (
-                    <button key={i} onClick={() => { setDestination(place.name + ', ' + place.address.split(',').slice(1).join(',')); setDestSuggestions([]) }}
+                    <button key={i} onClick={() => { setDestination(place.name + (place.address ? ', ' + place.address : '')); setDestSuggestions([]) }}
                       className="w-full text-left px-4 py-3 hover:bg-surface-hover transition-colors">
                       <div className="text-sm text-white font-medium">{place.name}</div>
-                      <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>
+                      {place.address && <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>}
                     </button>
                   ))}
                 </div>
