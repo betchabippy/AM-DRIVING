@@ -110,6 +110,19 @@ export default function CreateDrivePage() {
     if (places.length > 0) setMeetingSuggestions(places)
     setLoadingSuggestions(false)
   }
+
+    const center = stateCenters[selectedStates[0]] || [-74.006, 40.7128]
+    const searchTerm = character === 'breakfast' ? 'cafe' : character === 'scenic' ? 'park' : 'restaurant'
+    
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${searchTerm}.json?access_token=${token}&proximity=${center[0]},${center[1]}&country=US&types=poi&limit=5`
+    const res = await fetch(url)
+    const data = await res.json()
+    console.log('Mapbox response:', data)
+    const places = (data.features ?? []).map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center }))
+    console.log('Places found:', places)
+    if (places.length > 0) setMeetingSuggestions(places)
+    setLoadingSuggestions(false)
+  }
     const query = character === 'breakfast' ? 'restaurant breakfast' : character === 'scenic' ? 'scenic viewpoint park' : 'restaurant inn'
     const state = stateNames[selectedStates[0]] || selectedStates[0]
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query + ' ' + state)}.json?access_token=${token}&country=US&types=poi&limit=5`
