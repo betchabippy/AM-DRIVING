@@ -78,17 +78,28 @@ export default function CreateDrivePage() {
   const toggleState = (s: string) =>
     setSelectedStates(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
 
-  const searchPlaces = async (query: string, type: 'meeting' | 'dest') => {
+ const searchPlaces = async (query: string, type: 'meeting' | 'dest') => {
     if (!query || query.length < 3) {
       type === 'meeting' ? setMeetingSuggestions([]) : setDestSuggestions([])
       return
     }
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-    const encoded = encodeURIComponent(query)
-    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?access_token=' + token + '&country=US&types=poi,address&limit=5'
+    const state = selectedStates[0] || 'NY'
+    const stateNames: Record<string, string> = {
+      NY: 'New York', CT: 'Connecticut', VT: 'Vermont', MA: 'Massachusetts',
+      NH: 'New Hampshire', ME: 'Maine', NJ: 'New Jersey', PA: 'Pennsylvania',
+      VA: 'Virginia', MD: 'Maryland', NC: 'North Carolina', SC: 'South Carolina',
+    }
+    const stateName = stateNames[state] || state
+    const encoded = encodeURIComponent(query + ' ' + stateName)
+    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?access_token=' + token + '&country=US&types=poi&limit=6'
     const res = await fetch(url)
     const data = await res.json()
-    const places = (data.features ?? []).map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center }))
+    const places = (data.features ?? []).map((f: any) => ({
+      name: f.text,
+      address: f.place_name,
+      coords: f.center
+    }))
     type === 'meeting' ? setMeetingSuggestions(places) : setDestSuggestions(places)
   }
 
