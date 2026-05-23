@@ -83,31 +83,31 @@ export default function CreateDrivePage() {
       type === 'meeting' ? setMeetingSuggestions([]) : setDestSuggestions([])
       return
     }
-    const key = process.env.NEXT_PUBLIC_FOURSQUARE_KEY
+    const key = process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY
     const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
-    const url = 'https://api.foursquare.com/v3/autocomplete?query=' + encodeURIComponent(query) + '&ll=' + center[1] + ',' + center[0] + '&types=place&limit=6'
-    const res = await fetch(url, { headers: { Authorization: key!, Accept: 'application/json' } })
+    const url = 'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=' + encodeURIComponent(query) + '&location=' + center[1] + ',' + center[0] + '&radius=100000&key=' + key
+    const res = await fetch(url)
     const data = await res.json()
-    const places = (data.results ?? []).map((f: any) => ({
-      name: f.text?.primary || f.place?.name || '',
-      address: f.text?.secondary || '',
-    })).filter((p: any) => p.name)
+    const places = (data.predictions ?? []).map((p: any) => ({
+      name: p.structured_formatting?.main_text || p.description,
+      address: p.structured_formatting?.secondary_text || '',
+    }))
     type === 'meeting' ? setMeetingSuggestions(places) : setDestSuggestions(places)
   }
 
   const suggestMeetingPlaces = async () => {
     if (!selectedStates.length) return
     setLoadingSuggestions(true)
-    const key = process.env.NEXT_PUBLIC_FOURSQUARE_KEY
+    const key = process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY
     const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
     const searchTerm = character === 'breakfast' ? 'restaurant' : character === 'scenic' ? 'park' : 'restaurant'
-    const url = 'https://api.foursquare.com/v3/autocomplete?query=' + encodeURIComponent(searchTerm) + '&ll=' + center[1] + ',' + center[0] + '&types=place&limit=6'
-    const res = await fetch(url, { headers: { Authorization: key!, Accept: 'application/json' } })
+    const url = 'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=' + encodeURIComponent(searchTerm) + '&location=' + center[1] + ',' + center[0] + '&radius=50000&key=' + key
+    const res = await fetch(url)
     const data = await res.json()
-    const places = (data.results ?? []).map((f: any) => ({
-      name: f.text?.primary || f.place?.name || '',
-      address: f.text?.secondary || '',
-    })).filter((p: any) => p.name)
+    const places = (data.predictions ?? []).map((p: any) => ({
+      name: p.structured_formatting?.main_text || p.description,
+      address: p.structured_formatting?.secondary_text || '',
+    }))
     setMeetingSuggestions(places)
     setLoadingSuggestions(false)
   }
