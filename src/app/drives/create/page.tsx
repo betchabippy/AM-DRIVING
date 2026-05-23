@@ -8,18 +8,23 @@ import type { DriveType, DriveCharacter, DriveVisibility } from '@/types'
 import clsx from 'clsx'
 
 const STEPS = ['Drive type', 'Area', 'Route', 'Details & publish']
-
 const DRIVE_TYPES: { type: DriveType; icon: any; title: string; sub: string }[] = [
   { type: 'loop',        icon: RotateCcw, title: 'Loop drive',       sub: 'Start & end in the same place' },
   { type: 'destination', icon: MapPin,    title: 'Destination',      sub: 'Drive to a restaurant or venue' },
   { type: 'equidistant', icon: GitMerge,  title: 'Equidistant meet', sub: 'Find a midpoint for friends across states' },
   { type: 'multiday',    icon: Flag,      title: 'Multi-day rally',  sub: 'Overnight tour with waypoints' },
 ]
-
 const CHARACTERS: DriveCharacter[] = ['spirited', 'leisurely', 'scenic', 'breakfast', 'sunset']
 const DURATIONS = ['1 hr', '2 hrs', '3 hrs', 'Half day', 'Full day']
 const NE_STATES = ['NY', 'CT', 'VT', 'MA', 'NH', 'ME', 'NJ', 'PA']
 const MID_STATES = ['VA', 'MD', 'NC', 'SC', 'TN', 'WV']
+
+const STATE_CENTERS: Record<string, [number, number]> = {
+  NY: [-74.006, 40.7128], CT: [-72.6851, 41.6032], VT: [-72.5778, 44.5588],
+  MA: [-71.0589, 42.3601], NH: [-71.5724, 43.1939], ME: [-69.4455, 45.2538],
+  NJ: [-74.4057, 40.0583], PA: [-77.1945, 41.2033], VA: [-78.6569, 37.4316],
+  MD: [-76.6413, 39.0458], NC: [-79.0193, 35.7596], SC: [-81.1637, 33.8361],
+}
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
@@ -79,10 +84,11 @@ export default function CreateDrivePage() {
       return
     }
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&proximity=-74.006,40.7128&country=US&types=poi&limit=5`
+    const encoded = encodeURIComponent(query)
+    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?access_token=' + token + '&country=US&types=poi,address&limit=5'
     const res = await fetch(url)
     const data = await res.json()
-    const places = data.features?.map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center })) ?? []
+    const places = (data.features ?? []).map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center }))
     type === 'meeting' ? setMeetingSuggestions(places) : setDestSuggestions(places)
   }
 
@@ -90,44 +96,21 @@ export default function CreateDrivePage() {
     if (!selectedStates.length) return
     setLoadingSuggestions(true)
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-    
-    const stateCenters: Record<string, [number, number]> = {
-      NY: [-74.006, 40.7128], CT: [-72.6851, 41.6032], VT: [-72.5778, 44.5588],
-      MA: [-71.0589, 42.3601], NH: [-71.5724, 43.1939], ME: [-69.4455, 45.2538],
-      NJ: [-74.4057, 40.0583], PA: [-77.1945, 41.2033], VA: [-78.6569, 37.4316],
-      MD: [-76.6413, 39.0458], NC: [-79.0193, 35.7596], SC: [-81.1637, 33.8361],
-    }
-
-    const center = stateCenters[selectedStates[0]] || [-74.006, 40.7128]
+    const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
     const searchTerm = character === 'breakfast' ? 'cafe' : character === 'scenic' ? 'park' : 'restaurant'
-    
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${searchTerm}.json?access_token=${token}&proximity=${center[0]},${center[1]}&country=US&types=poi&limit=5`
+    const encoded = encodeURIComponent(searchTerm)
+    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?access_token=' + token + '&proximity=' + center[0] + ',' + center[1] + '&country=US&types=poi&limit=5'
     const res = await fetch(url)
     const data = await res.json()
-    console.log('Mapbox response:', data)
     const places = (data.features ?? []).map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center }))
-    console.log('Places found:', places)
-    if (places.length > 0) setMeetingSuggestions(places)
-    setLoadingSuggestions(false)
-  }
-
-    const center = stateCenters[selectedStates[0]] || [-74.006, 40.7128]
-    const searchTerm = character === 'breakfast' ? 'cafe' : character === 'scenic' ? 'park' : 'restaurant'
-    
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${searchTerm}.json?access_token=${token}&proximity=${center[0]},${center[1]}&country=US&types=poi&limit=5`
-    const res = await fetch(url)
-    const data = await res.json()
-    console.log('Mapbox response:', data)
-    const places = (data.features ?? []).map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center }))
-    console.log('Places found:', places)
-    if (places.length > 0) setMeetingSuggestions(places)
+    setMeetingSuggestions(places)
     setLoadingSuggestions(false)
   }
 
   const handlePublish = async () => {
     if (!user || !driveDate) return
     setSaving(true)
-    const driveTitle = title || `${character.charAt(0).toUpperCase() + character.slice(1)} drive — ${selectedStates.join('/')}`
+    const driveTitle = title || (character.charAt(0).toUpperCase() + character.slice(1) + ' drive — ' + selectedStates.join('/'))
     const { data, error } = await supabase.from('drives').insert({
       title: driveTitle, type: driveType, character, visibility,
       drive_date: driveDate, depart_time: driveTime,
@@ -139,7 +122,7 @@ export default function CreateDrivePage() {
     }).select().single()
     setSaving(false)
     if (error) { alert(JSON.stringify(error)); return }
-    if (data) router.push(`/drives/${data.id}`)
+    if (data) router.push('/drives/' + data.id)
   }
 
   const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1))
@@ -236,7 +219,7 @@ export default function CreateDrivePage() {
             <div className="p-4 rounded-xl border border-gold-400/20 bg-amber-950/10 flex gap-3">
               <MapPin size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-gray-400 leading-relaxed">
-                With <span className="text-gold-400">{selectedStates.join(' + ')}</span> selected, we'll find scenic roads across the area.
+                With <span className="text-gold-400">{selectedStates.join(' + ')}</span> selected, we will find scenic roads across the area.
               </p>
             </div>
           )}
@@ -272,7 +255,7 @@ export default function CreateDrivePage() {
             </button>
           ))}
           <button onClick={next} className="w-full btn-gold flex items-center justify-center gap-2">
-            Next — Details & publish <ArrowRight size={15} />
+            Next — Details and publish <ArrowRight size={15} />
           </button>
         </div>
       )}
@@ -286,7 +269,8 @@ export default function CreateDrivePage() {
 
           <div>
             <p className="section-label mb-2">Drive name</p>
-            <input type="text" placeholder={`${character.charAt(0).toUpperCase() + character.slice(1)} drive — ${selectedStates.join('/')}`}
+            <input type="text"
+              placeholder={character.charAt(0).toUpperCase() + character.slice(1) + ' drive'}
               value={title} onChange={e => setTitle(e.target.value)} className="input-dark" />
           </div>
 
@@ -302,13 +286,10 @@ export default function CreateDrivePage() {
                 </button>
               ))}
             </div>
-            {visibility === 'open' && (
-              <p className="text-xs text-gray-500 mt-2">Any Rally member can request to join — any car, any club or none.</p>
-            )}
           </div>
 
           <div>
-            <p className="section-label mb-3">Date & time</p>
+            <p className="section-label mb-3">Date and time</p>
             <div className="grid grid-cols-2 gap-3">
               <input type="date" value={driveDate} onChange={e => setDriveDate(e.target.value)} className="input-dark" />
               <input type="time" value={driveTime} onChange={e => setDriveTime(e.target.value)} className="input-dark" />
