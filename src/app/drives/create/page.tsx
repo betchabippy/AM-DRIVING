@@ -79,7 +79,7 @@ export default function CreateDrivePage() {
       return
     }
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&country=US&types=poi,address&limit=5`
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&proximity=-74.006,40.7128&country=US&types=poi&limit=5`
     const res = await fetch(url)
     const data = await res.json()
     const places = data.features?.map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center })) ?? []
