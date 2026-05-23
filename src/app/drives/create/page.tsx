@@ -26,6 +26,12 @@ const STATE_CENTERS: Record<string, [number, number]> = {
   MD: [-76.6413, 39.0458], NC: [-79.0193, 35.7596], SC: [-81.1637, 33.8361],
 }
 
+const STATE_NAMES: Record<string, string> = {
+  NY: 'New York', CT: 'Connecticut', VT: 'Vermont', MA: 'Massachusetts',
+  NH: 'New Hampshire', ME: 'Maine', NJ: 'New Jersey', PA: 'Pennsylvania',
+  VA: 'Virginia', MD: 'Maryland', NC: 'North Carolina', SC: 'South Carolina',
+}
+
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
     <div className="flex gap-1.5">
@@ -78,21 +84,16 @@ export default function CreateDrivePage() {
   const toggleState = (s: string) =>
     setSelectedStates(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
 
- const searchPlaces = async (query: string, type: 'meeting' | 'dest') => {
+  const searchPlaces = async (query: string, type: 'meeting' | 'dest') => {
     if (!query || query.length < 3) {
       type === 'meeting' ? setMeetingSuggestions([]) : setDestSuggestions([])
       return
     }
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
     const state = selectedStates[0] || 'NY'
-    const stateNames: Record<string, string> = {
-      NY: 'New York', CT: 'Connecticut', VT: 'Vermont', MA: 'Massachusetts',
-      NH: 'New Hampshire', ME: 'Maine', NJ: 'New Jersey', PA: 'Pennsylvania',
-      VA: 'Virginia', MD: 'Maryland', NC: 'North Carolina', SC: 'South Carolina',
-    }
-    const stateName = stateNames[state] || state
+    const stateName = STATE_NAMES[state] || state
     const encoded = encodeURIComponent(query + ' ' + stateName)
-    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?access_token=' + token + '&country=US&types=poi&limit=6'
+    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?access_token=' + token + '&country=US&types=poi,address&limit=6'
     const res = await fetch(url)
     const data = await res.json()
     const places = (data.features ?? []).map((f: any) => ({
@@ -113,7 +114,11 @@ export default function CreateDrivePage() {
     const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?access_token=' + token + '&proximity=' + center[0] + ',' + center[1] + '&country=US&types=poi&limit=5'
     const res = await fetch(url)
     const data = await res.json()
-    const places = (data.features ?? []).map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center }))
+    const places = (data.features ?? []).map((f: any) => ({
+      name: f.text,
+      address: f.place_name,
+      coords: f.center
+    }))
     setMeetingSuggestions(places)
     setLoadingSuggestions(false)
   }
@@ -121,7 +126,7 @@ export default function CreateDrivePage() {
   const handlePublish = async () => {
     if (!user || !driveDate) return
     setSaving(true)
-    const driveTitle = title || (character.charAt(0).toUpperCase() + character.slice(1) + ' drive — ' + selectedStates.join('/'))
+    const driveTitle = title || (character.charAt(0).toUpperCase() + character.slice(1) + ' drive')
     const { data, error } = await supabase.from('drives').insert({
       title: driveTitle, type: driveType, character, visibility,
       drive_date: driveDate, depart_time: driveTime,
@@ -280,8 +285,7 @@ export default function CreateDrivePage() {
 
           <div>
             <p className="section-label mb-2">Drive name</p>
-            <input type="text"
-              placeholder={character.charAt(0).toUpperCase() + character.slice(1) + ' drive'}
+            <input type="text" placeholder="Name your drive"
               value={title} onChange={e => setTitle(e.target.value)} className="input-dark" />
           </div>
 
@@ -297,6 +301,9 @@ export default function CreateDrivePage() {
                 </button>
               ))}
             </div>
+            {visibility === 'open' && (
+              <p className="text-xs text-gray-500 mt-2">Any Rally member can request to join — any car, any club or none.</p>
+            )}
           </div>
 
           <div>
@@ -329,9 +336,9 @@ export default function CreateDrivePage() {
             {meetingSuggestions.length > 0 && (
               <div className="mt-2 card divide-y divide-surface-border">
                 {meetingSuggestions.map((place, i) => (
-                  <button key={i} onClick={() => { setMeetingPoint(place.address); setMeetingSuggestions([]) }}
+                  <button key={i} onClick={() => { setMeetingPoint(place.name + ', ' + place.address.split(',').slice(1).join(',')); setMeetingSuggestions([]) }}
                     className="w-full text-left px-4 py-3 hover:bg-surface-hover transition-colors">
-                    <div className="text-sm text-white">{place.name}</div>
+                    <div className="text-sm text-white font-medium">{place.name}</div>
                     <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>
                   </button>
                 ))}
@@ -357,9 +364,9 @@ export default function CreateDrivePage() {
               {destSuggestions.length > 0 && (
                 <div className="mt-2 card divide-y divide-surface-border">
                   {destSuggestions.map((place, i) => (
-                    <button key={i} onClick={() => { setDestination(place.address); setDestSuggestions([]) }}
+                    <button key={i} onClick={() => { setDestination(place.name + ', ' + place.address.split(',').slice(1).join(',')); setDestSuggestions([]) }}
                       className="w-full text-left px-4 py-3 hover:bg-surface-hover transition-colors">
-                      <div className="text-sm text-white">{place.name}</div>
+                      <div className="text-sm text-white font-medium">{place.name}</div>
                       <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>
                     </button>
                   ))}
