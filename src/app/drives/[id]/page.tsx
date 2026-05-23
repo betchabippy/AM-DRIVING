@@ -14,6 +14,7 @@ export default function DriveDetailPage() {
   const [drive, setDrive] = useState<any>(null)
   const [user, setUser] = useState<any>(null)
   const [userCars, setUserCars] = useState<any[]>([])
+  const [attendees, setAttendees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCar, setSelectedCar] = useState('')
   const [note, setNote] = useState('')
@@ -21,6 +22,15 @@ export default function DriveDetailPage() {
   const [showRsvp, setShowRsvp] = useState(false)
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  const loadAttendees = async () => {
+    const { data } = await supabase
+      .from('rsvps')
+      .select('*, profiles(name), cars(make, model, year, color, color_hex, photo_url, club_name)')
+      .eq('drive_id', id)
+      .order('created_at', { ascending: true })
+    setAttendees(data ?? [])
+  }
 
   useEffect(() => {
     if (!id) return
@@ -35,12 +45,15 @@ export default function DriveDetailPage() {
           .select('*').eq('drive_id', id).eq('user_id', user.id).maybeSingle()
         if (rsvp) setRsvpStatus(rsvp.status)
       }
+
       const { data: driveData } = await supabase
         .from('drives')
         .select('*, profiles(name)')
         .eq('id', id)
         .maybeSingle()
       setDrive(driveData)
+
+      await loadAttendees()
       setLoading(false)
     }
     load()
@@ -57,6 +70,7 @@ export default function DriveDetailPage() {
     setRsvpStatus(status)
     setShowRsvp(false)
     setSaving(false)
+    await loadAttendees()
   }
 
   const handleShare = () => {
@@ -71,6 +85,8 @@ export default function DriveDetailPage() {
   }
 
   const isOrganizer = user && drive && user.id === drive.organizer_id
+  const goingAttendees = attendees.filter(a => a.status === 'going')
+  const maybeAttendees = attendees.filter(a => a.status === 'maybe')
 
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-500">Loading...</div>
   if (!drive) return <div className="flex items-center justify-center h-64 text-gray-500">Drive not found</div>
@@ -82,8 +98,7 @@ export default function DriveDetailPage() {
           <ArrowLeft size={15} /> Back to drives
         </Link>
         <div className="flex items-center gap-2">
-          <button onClick={handleShare}
-            className="flex items-center gap-2 text-xs btn-outline">
+          <button onClick={handleShare} className="flex items-center gap-2 text-xs btn-outline">
             <Share2 size={13} /> {copied ? 'Copied!' : 'Share'}
           </button>
           {isOrganizer && (
@@ -149,8 +164,8 @@ export default function DriveDetailPage() {
           <div className="flex items-start gap-3 p-4">
             <Users size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
             <div>
-              <div className="text-xs text-gray-500 mb-0.5">Max spots</div>
-              <div className="text-sm text-white">{drive.max_spots}</div>
+              <div className="text-xs text-gray-500 mb-0.5">Spots</div>
+              <div className="text-sm text-white">{goingAttendees.length} going · {drive.max_spots} max</div>
             </div>
           </div>
         )}
@@ -169,6 +184,45 @@ export default function DriveDetailPage() {
         </div>
       )}
 
+      {attendees.length > 0 && (
+        <div className="mb-6">
+          <h2 className="section-label mb-3">
+            Going ({goingAttendees.length})
+            {maybeAttendees.length > 0 && <span className="text-gray-600 ml-2">· {maybeAttendees.length} maybe</span>}
+          </h2>
+          <div className="card divide-y divide-surface-border">
+            {attendees.map(a => (
+              <div key={a.id} className="flex items-center gap-3 p-4">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 bg-surface border border-surface-border text-gold-400">
+                  {a.profiles?.name ? a.profiles.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-white">{a.profiles?.name || 'Member'}</div>
+                  {a.cars && (
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {a.cars.year} {a.cars.make} {a.cars.model}
+                      {a.cars.color && ` · ${a.cars.color}`}
+                      {a.cars.club_name && ` · ${a.cars.club_name}`}
+                    </div>
+                  )}
+                  {a.note && <div className="text-xs text-gray-600 mt-0.5 italic">"{a.note}"</div>}
+                </div>
+                {a.cars?.color_hex && (
+                  <div className="w-6 h-6 rounded-full flex-shrink-0 border border-white/10"
+                    style={{ background: a.cars.color_hex }} />
+                )}
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  a.status === 'going' ? 'bg-green-900' : a.status === 'maybe' ? 'bg-amber-900' : 'bg-surface-border'
+                }`}>
+                  {a.status === 'going' && <Check size={10} className="text-green-400" />}
+                  {a.status === 'maybe' && <Minus size={10} className="text-amber-400" />}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {showRsvp && (
         <div className="card p-5 mb-4 animate-slide-up">
           <h3 className="font-medium text-white mb-4">RSVP to this drive</h3>
@@ -178,8 +232,17 @@ export default function DriveDetailPage() {
               <div className="space-y-2 mb-4">
                 {userCars.map(car => (
                   <button key={car.id} onClick={() => setSelectedCar(car.id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedCar === car.id ? 'border-gold-400 bg-amber-950/30' : 'border-surface-border bg-surface-raised'}`}>
-                    <div className={`w-2.5 h-2.5 rounded-full border-2 flex-shrink-0 ${selectedCar === car.id ? 'bg-gold-400 border-gold-400' : 'border-gray-600'}`} />
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                      selectedCar === car.id ? 'border-gold-400 bg-amber-950/30' : 'border-surface-border bg-surface-raised'
+                    }`}>
+                    <div className={`w-2.5 h-2.5 rounded-full border-2 flex-shrink-0 ${
+                      selectedCar === car.id ? 'bg-gold-400 border-gold-400' : 'border-gray-600'
+                    }`} />
+                    {car.photo_url ? (
+                      <img src={car.photo_url} alt={car.model} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: car.color_hex || '#1a1a1a' }} />
+                    )}
                     <div>
                       <div className="text-sm font-medium text-white">{car.year} {car.make} {car.model}</div>
                       <div className="text-xs text-gray-600">{car.color}</div>
