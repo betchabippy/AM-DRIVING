@@ -1,13 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, MapPin, Flag, Users, Check, Minus, X, Globe, Lock, Shield } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Flag, Users, Check, Minus, X, Globe, Lock, Shield, Share2, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { format, parseISO } from 'date-fns'
 
 export default function DriveDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const id = params.id as string
 
   const [drive, setDrive] = useState<any>(null)
@@ -19,6 +20,7 @@ export default function DriveDetailPage() {
   const [rsvpStatus, setRsvpStatus] = useState<string>('pending')
   const [showRsvp, setShowRsvp] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -48,25 +50,50 @@ export default function DriveDetailPage() {
     if (!user) return
     setSaving(true)
     await supabase.from('rsvps').upsert({
-      drive_id: id,
-      user_id: user.id,
+      drive_id: id, user_id: user.id,
       car_id: selectedCar || null,
-      status,
-      note: note || null,
+      status, note: note || null,
     })
     setRsvpStatus(status)
     setShowRsvp(false)
     setSaving(false)
   }
 
+  const handleShare = () => {
+    const url = window.location.href
+    if (navigator.share) {
+      navigator.share({ title: drive?.title, url })
+    } else {
+      navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const isOrganizer = user && drive && user.id === drive.organizer_id
+
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-500">Loading...</div>
   if (!drive) return <div className="flex items-center justify-center h-64 text-gray-500">Drive not found</div>
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 pb-32 md:pb-8">
-      <Link href="/drives" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors mb-6">
-        <ArrowLeft size={15} /> Back to drives
-      </Link>
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/drives" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors">
+          <ArrowLeft size={15} /> Back to drives
+        </Link>
+        <div className="flex items-center gap-2">
+          <button onClick={handleShare}
+            className="flex items-center gap-2 text-xs btn-outline">
+            <Share2 size={13} /> {copied ? 'Copied!' : 'Share'}
+          </button>
+          {isOrganizer && (
+            <button onClick={() => router.push('/drives/' + id + '/edit')}
+              className="flex items-center gap-2 text-xs btn-outline">
+              <Pencil size={13} /> Edit
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="map-placeholder h-40 rounded-card mb-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-base/80 to-transparent" />
@@ -128,6 +155,13 @@ export default function DriveDetailPage() {
           </div>
         )}
       </div>
+
+      {drive.route_description && (
+        <div className="card p-5 mb-6">
+          <div className="text-xs text-gray-500 mb-2 font-medium tracking-widest uppercase">Route</div>
+          <p className="text-sm text-gray-300 leading-relaxed">{drive.route_description}</p>
+        </div>
+      )}
 
       {drive.description && (
         <div className="card p-4 mb-6">
