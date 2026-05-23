@@ -26,12 +26,6 @@ const STATE_CENTERS: Record<string, [number, number]> = {
   MD: [-76.6413, 39.0458], NC: [-79.0193, 35.7596], SC: [-81.1637, 33.8361],
 }
 
-const STATE_NAMES: Record<string, string> = {
-  NY: 'New York', CT: 'Connecticut', VT: 'Vermont', MA: 'Massachusetts',
-  NH: 'New Hampshire', ME: 'Maine', NJ: 'New Jersey', PA: 'Pennsylvania',
-  VA: 'Virginia', MD: 'Maryland', NC: 'North Carolina', SC: 'South Carolina',
-}
-
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
     <div className="flex gap-1.5">
@@ -91,22 +85,19 @@ export default function CreateDrivePage() {
     }
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
     const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
-    const params = new URLSearchParams({
-      access_token: token!,
-      proximity: center[0] + ',' + center[1],
-      country: 'US',
-      types: 'poi',
-      limit: '6',
-      language: 'en'
-    })
-    const encoded = encodeURIComponent(query)
-    const res = await fetch('https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?' + params.toString())
-    const data = await res.json()
-    const places = (data.features ?? []).map((f: any) => ({
-      name: f.text,
-      address: f.place_name,
-    }))
-    type === 'meeting' ? setMeetingSuggestions(places) : setDestSuggestions(places)
+    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encodeURIComponent(query) + '.json?access_token=' + token + '&proximity=' + center[0] + ',' + center[1] + '&country=US&types=poi,address&limit=5'
+    try {
+      const res = await fetch(url)
+      const data = await res.json()
+      const places = (data.features ?? []).map((f: any) => ({
+        name: f.text,
+        address: f.place_name,
+      }))
+      if (type === 'meeting') setMeetingSuggestions(places)
+      else setDestSuggestions(places)
+    } catch (e) {
+      console.error('Search error:', e)
+    }
   }
 
   const suggestMeetingPlaces = async () => {
@@ -115,22 +106,18 @@ export default function CreateDrivePage() {
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
     const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
     const searchTerm = character === 'breakfast' ? 'restaurant' : character === 'scenic' ? 'park' : 'restaurant'
-    const params = new URLSearchParams({
-      access_token: token!,
-      proximity: center[0] + ',' + center[1],
-      country: 'US',
-      types: 'poi',
-      limit: '6',
-      language: 'en'
-    })
-    const encoded = encodeURIComponent(searchTerm)
-    const res = await fetch('https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?' + params.toString())
-    const data = await res.json()
-    const places = (data.features ?? []).map((f: any) => ({
-      name: f.text,
-      address: f.place_name,
-    }))
-    setMeetingSuggestions(places)
+    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encodeURIComponent(searchTerm) + '.json?access_token=' + token + '&proximity=' + center[0] + ',' + center[1] + '&country=US&types=poi&limit=5'
+    try {
+      const res = await fetch(url)
+      const data = await res.json()
+      const places = (data.features ?? []).map((f: any) => ({
+        name: f.text,
+        address: f.place_name,
+      }))
+      setMeetingSuggestions(places)
+    } catch (e) {
+      console.error('Suggest error:', e)
+    }
     setLoadingSuggestions(false)
   }
 
@@ -347,10 +334,11 @@ export default function CreateDrivePage() {
             {meetingSuggestions.length > 0 && (
               <div className="mt-2 card divide-y divide-surface-border">
                 {meetingSuggestions.map((place, i) => (
-                  <button key={i} onClick={() => { setMeetingPoint(place.name + (place.address ? ', ' + place.address : '')); setMeetingSuggestions([]) }}
+                  <button key={i}
+                    onClick={() => { setMeetingPoint(place.name + ', ' + place.address); setMeetingSuggestions([]) }}
                     className="w-full text-left px-4 py-3 hover:bg-surface-hover transition-colors">
                     <div className="text-sm text-white font-medium">{place.name}</div>
-                    {place.address && <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>}
+                    <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>
                   </button>
                 ))}
               </div>
@@ -375,10 +363,11 @@ export default function CreateDrivePage() {
               {destSuggestions.length > 0 && (
                 <div className="mt-2 card divide-y divide-surface-border">
                   {destSuggestions.map((place, i) => (
-                    <button key={i} onClick={() => { setDestination(place.name + (place.address ? ', ' + place.address : '')); setDestSuggestions([]) }}
+                    <button key={i}
+                      onClick={() => { setDestination(place.name + ', ' + place.address); setDestSuggestions([]) }}
                       className="w-full text-left px-4 py-3 hover:bg-surface-hover transition-colors">
                       <div className="text-sm text-white font-medium">{place.name}</div>
-                      {place.address && <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>}
+                      <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>
                     </button>
                   ))}
                 </div>
