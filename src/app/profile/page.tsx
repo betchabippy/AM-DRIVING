@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Car, Users, LogOut } from 'lucide-react'
+import { Car, Users, LogOut, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function ProfilePage() {
@@ -10,18 +10,34 @@ export default function ProfilePage() {
   const [user, setUser] = useState<any>(null)
   const [cars, setCars] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [name, setName] = useState('')
+  const [editingName, setEditingName] = useState(false)
+  const [savingName, setSavingName] = useState(false)
+  const [nameSaved, setNameSaved] = useState(false)
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setUser(user)
+      setName(user.user_metadata?.name || '')
       const { data: userCars } = await supabase.from('cars').select('*').eq('user_id', user.id)
       setCars(userCars ?? [])
       setLoading(false)
     }
     load()
   }, [])
+
+  const handleSaveName = async () => {
+    if (!user || !name.trim()) return
+    setSavingName(true)
+    await supabase.auth.updateUser({ data: { name: name.trim() } })
+    await supabase.from('profiles').update({ name: name.trim() }).eq('id', user.id)
+    setSavingName(false)
+    setEditingName(false)
+    setNameSaved(true)
+    setTimeout(() => setNameSaved(false), 2000)
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -30,10 +46,9 @@ export default function ProfilePage() {
 
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-500">Loading...</div>
 
-  const name = user?.user_metadata?.name || user?.email || 'My Profile'
-  const initials = name.split(' ').length >= 2
+  const initials = name.split(' ').filter(Boolean).length >= 2
     ? `${name.split(' ')[0][0]}${name.split(' ')[1][0]}`.toUpperCase()
-    : name.slice(0, 2).toUpperCase()
+    : name.slice(0, 2).toUpperCase() || '?'
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 pb-24 md:pb-8">
@@ -41,13 +56,45 @@ export default function ProfilePage() {
 
       <div className="card p-6 mb-6">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-medium"
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-medium flex-shrink-0"
             style={{ background: '#1e1a0e', border: '2px solid #C9A84C', color: '#C9A84C' }}>
             {initials}
           </div>
-          <div>
-            <h2 className="text-xl font-medium text-white">{name}</h2>
-            <p className="text-sm text-gray-500">{user?.email}</p>
+          <div className="flex-1 min-w-0">
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                  className="input-dark text-lg py-2 flex-1"
+                  placeholder="Your display name"
+                  autoFocus
+                />
+                <button onClick={handleSaveName} disabled={savingName}
+                  className="btn-gold text-xs px-4 py-2 flex-shrink-0">
+                  {savingName ? '...' : 'Save'}
+                </button>
+                <button onClick={() => setEditingName(false)} className="btn-outline text-xs px-3 py-2 flex-shrink-0">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-xl font-medium text-white flex items-center gap-2">
+                    {name || 'Add your name'}
+                    {nameSaved && <Check size={16} className="text-green-400" />}
+                  </h2>
+                  <p className="text-sm text-gray-500">{user?.email}</p>
+                </div>
+                <button onClick={() => setEditingName(true)}
+                  className="text-xs text-gold-400 hover:text-gold-200 transition-colors ml-2 flex-shrink-0">
+                  Edit name
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
