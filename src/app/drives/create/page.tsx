@@ -38,7 +38,9 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   )
 }
 
-export default function CreateDrivePage() {
+export default function CreateDrivePage() {const [mounted, setMounted] = useState(false)
+useEffect(() => setMounted(true), [])
+if (!mounted) return null
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [userCars, setUserCars] = useState<any[]>([])
