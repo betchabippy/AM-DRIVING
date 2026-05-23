@@ -89,17 +89,15 @@ export default function CreateDrivePage() {
       type === 'meeting' ? setMeetingSuggestions([]) : setDestSuggestions([])
       return
     }
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-    const state = selectedStates[0] || 'NY'
-    const stateName = STATE_NAMES[state] || state
-    const encoded = encodeURIComponent(query + ' ' + stateName)
-    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?access_token=' + token + '&country=US&types=poi,address&limit=6'
-    const res = await fetch(url)
+    const key = process.env.NEXT_PUBLIC_FOURSQUARE_KEY
+    const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
+    const url = 'https://api.foursquare.com/v3/places/search?query=' + encodeURIComponent(query) + '&ll=' + center[1] + ',' + center[0] + '&radius=100000&limit=6&fields=name,location'
+    const res = await fetch(url, { headers: { Authorization: key! } })
     const data = await res.json()
-    const places = (data.features ?? []).map((f: any) => ({
-      name: f.text,
-      address: f.place_name,
-      coords: f.center
+    const places = (data.results ?? []).map((f: any) => ({
+      name: f.name,
+      address: [f.location?.address, f.location?.locality, f.location?.region].filter(Boolean).join(', '),
+      coords: [f.geocodes?.main?.longitude, f.geocodes?.main?.latitude]
     }))
     type === 'meeting' ? setMeetingSuggestions(places) : setDestSuggestions(places)
   }
@@ -107,17 +105,16 @@ export default function CreateDrivePage() {
   const suggestMeetingPlaces = async () => {
     if (!selectedStates.length) return
     setLoadingSuggestions(true)
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+    const key = process.env.NEXT_PUBLIC_FOURSQUARE_KEY
     const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
-    const searchTerm = character === 'breakfast' ? 'cafe' : character === 'scenic' ? 'park' : 'restaurant'
-    const encoded = encodeURIComponent(searchTerm)
-    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encoded + '.json?access_token=' + token + '&proximity=' + center[0] + ',' + center[1] + '&country=US&types=poi&limit=5'
-    const res = await fetch(url)
+    const category = character === 'breakfast' ? '13000' : character === 'scenic' ? '16000' : '13000'
+    const url = 'https://api.foursquare.com/v3/places/search?ll=' + center[1] + ',' + center[0] + '&radius=50000&limit=6&categories=' + category + '&fields=name,location&sort=POPULARITY'
+    const res = await fetch(url, { headers: { Authorization: key! } })
     const data = await res.json()
-    const places = (data.features ?? []).map((f: any) => ({
-      name: f.text,
-      address: f.place_name,
-      coords: f.center
+    const places = (data.results ?? []).map((f: any) => ({
+      name: f.name,
+      address: [f.location?.address, f.location?.locality, f.location?.region].filter(Boolean).join(', '),
+      coords: [f.geocodes?.main?.longitude, f.geocodes?.main?.latitude]
     }))
     setMeetingSuggestions(places)
     setLoadingSuggestions(false)
