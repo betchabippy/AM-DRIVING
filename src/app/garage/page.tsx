@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { Plus, Check, Shield } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Check, Shield, Camera, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import clsx from 'clsx'
 
@@ -26,13 +26,19 @@ export default function GaragePage() {
   const [nickname, setNickname] = useState('')
   const [club, setClub] = useState('None')
   const [saving, setSaving] = useState(false)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUser(user)
-        const { data: userCars } = await supabase.from('cars').select('*').eq('user_id', user.id).order('is_primary', { ascending: false })
+        const { data: userCars } = await supabase
+          .from('cars').select('*')
+          .eq('user_id', user.id)
+          .order('is_primary', { ascending: false })
         setCars(userCars ?? [])
       }
       setLoading(false)
@@ -40,12 +46,39 @@ export default function GaragePage() {
     load()
   }, [])
 
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const uploadPhoto = async (carId: string): Promise<string | null> => {
+    if (!photoFile || !user) return null
+    const ext = photoFile.name.split('.').pop()
+    const path = `${user.id}/${carId}.${ext}`
+    const { error } = await supabase.storage
+      .from('car-images')
+      .upload(path, photoFile, { upsert: true })
+    if (error) return null
+    const { data } = supabase.storage.from('car-images').getPublicUrl(path)
+    return data.publicUrl
+  }
+
   const handleAddCar = async () => {
     if (!user || !make || !model || !year) return
     setSaving(true)
     const colorHex = COLOR_MAP[color] || '#1a1a1a'
     const isPrimary = cars.length === 0
+    const carId = crypto.randomUUID()
+
+    let photoUrl: string | null = null
+    if (photoFile) {
+      photoUrl = await uploadPhoto(carId)
+    }
+
     const { data, error } = await supabase.from('cars').insert({
+      id: carId,
       user_id: user.id,
       make, model,
       year: parseInt(year),
@@ -56,13 +89,17 @@ export default function GaragePage() {
       club_name: club === 'None' ? null : club,
       club_badge: club === 'None' ? 'none' : 'self-declared',
       is_primary: isPrimary,
+      photo_url: photoUrl,
     }).select().single()
+
     setSaving(false)
-    if (error) { console.error('Insert error:', error); alert(JSON.stringify(error)) }
-if (!error && data) {
+    if (error) { console.error('Insert error:', error); alert(JSON.stringify(error)); return }
+    if (data) {
       setCars(prev => [...prev, data])
       setShowAddCar(false)
-      setMake('Aston Martin'); setModel(''); setYear(''); setColor(''); setSpec(''); setNickname(''); setClub('None')
+      setMake('Aston Martin'); setModel(''); setYear(''); setColor('')
+      setSpec(''); setNickname(''); setClub('None')
+      setPhotoFile(null); setPhotoPreview(null)
     }
   }
 
@@ -120,10 +157,21 @@ if (!error && data) {
         <div className="space-y-4 mb-6">
           {cars.map(car => (
             <div key={car.id} className="card overflow-hidden">
-              <div className="h-24 flex items-center justify-center px-6" style={{ background: `${car.color_hex || '#1a1a1a'}30` }}>
-                <div className="text-center">
+              <div className="h-48 relative overflow-hidden" style={{ background: `${car.color_hex || '#1a1a1a'}30` }}>
+                {car.photo_url ? (
+                  <img src={car.photo_url} alt={`${car.make} ${car.model}`} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="font-display text-2xl text-white">{car.year} {car.make} {car.model}</div>
+                      {car.color && <div className="text-sm text-gray-500 mt-1">{car.color}</div>}
+                    </div>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute bottom-4 left-4">
                   <div className="font-display text-xl text-white">{car.year} {car.make} {car.model}</div>
-                  {car.color && <div className="text-sm text-gray-500 mt-1">{car.color}</div>}
+                  {car.color && <div className="text-sm text-gray-400">{car.color}</div>}
                 </div>
               </div>
               <div className="p-5">
@@ -159,7 +207,28 @@ if (!error && data) {
           <div className="w-full max-w-md card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-display text-2xl text-white">Add a car</h3>
-              <button onClick={() => setShowAddCar(false)} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <button onClick={() => { setShowAddCar(false); setPhotoFile(null); setPhotoPreview(null) }}
+                className="text-gray-500 hover:text-white text-xl">✕</button>
+            </div>
+
+            <p className="section-label mb-3">Photo</p>
+            <div className="mb-5">
+              {photoPreview ? (
+                <div className="relative h-40 rounded-xl overflow-hidden">
+                  <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                  <button onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80">
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-32 border border-dashed border-surface-border rounded-xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:border-gold-400 hover:text-gold-400 transition-all">
+                  <Camera size={22} />
+                  <span className="text-xs">Upload a photo of your car</span>
+                </button>
+              )}
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
             </div>
 
             <p className="section-label mb-3">Make</p>
