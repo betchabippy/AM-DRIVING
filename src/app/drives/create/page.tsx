@@ -90,11 +90,26 @@ export default function CreateDrivePage() {
     if (!selectedStates.length) return
     setLoadingSuggestions(true)
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-    const stateNames: Record<string, string> = {
-      NY: 'New York', CT: 'Connecticut', VT: 'Vermont', MA: 'Massachusetts',
-      NH: 'New Hampshire', ME: 'Maine', NJ: 'New Jersey', PA: 'Pennsylvania',
-      VA: 'Virginia', MD: 'Maryland', NC: 'North Carolina', SC: 'South Carolina',
+    
+    const stateCenters: Record<string, [number, number]> = {
+      NY: [-74.006, 40.7128], CT: [-72.6851, 41.6032], VT: [-72.5778, 44.5588],
+      MA: [-71.0589, 42.3601], NH: [-71.5724, 43.1939], ME: [-69.4455, 45.2538],
+      NJ: [-74.4057, 40.0583], PA: [-77.1945, 41.2033], VA: [-78.6569, 37.4316],
+      MD: [-76.6413, 39.0458], NC: [-79.0193, 35.7596], SC: [-81.1637, 33.8361],
     }
+
+    const center = stateCenters[selectedStates[0]] || [-74.006, 40.7128]
+    const searchTerm = character === 'breakfast' ? 'cafe' : character === 'scenic' ? 'park' : 'restaurant'
+    
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${searchTerm}.json?access_token=${token}&proximity=${center[0]},${center[1]}&country=US&types=poi&limit=5`
+    const res = await fetch(url)
+    const data = await res.json()
+    console.log('Mapbox response:', data)
+    const places = (data.features ?? []).map((f: any) => ({ name: f.text, address: f.place_name, coords: f.center }))
+    console.log('Places found:', places)
+    if (places.length > 0) setMeetingSuggestions(places)
+    setLoadingSuggestions(false)
+  }
     const query = character === 'breakfast' ? 'restaurant breakfast' : character === 'scenic' ? 'scenic viewpoint park' : 'restaurant inn'
     const state = stateNames[selectedStates[0]] || selectedStates[0]
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query + ' ' + state)}.json?access_token=${token}&country=US&types=poi&limit=5`
