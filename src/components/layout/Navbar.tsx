@@ -7,10 +7,11 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const links = [
-  { href: '/',        label: 'Discover',  icon: Compass },
-  { href: '/drives',  label: 'Drives',    icon: Gauge },
-  { href: '/clubs',   label: 'Clubs',     icon: Users },
-  { href: '/garage',  label: 'Garage',    icon: Car },
+  { href: '/',           label: 'Discover',  icon: Compass },
+  { href: '/drives',     label: 'Drives',    icon: Gauge },
+  { href: '/my-drives',  label: 'My drives', icon: Flag },
+  { href: '/clubs',      label: 'Clubs',     icon: Users },
+  { href: '/garage',     label: 'Garage',    icon: Car },
 ]
 
 export function Navbar() {
