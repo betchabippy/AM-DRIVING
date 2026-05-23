@@ -83,41 +83,32 @@ export default function CreateDrivePage() {
       type === 'meeting' ? setMeetingSuggestions([]) : setDestSuggestions([])
       return
     }
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+    const key = process.env.NEXT_PUBLIC_FOURSQUARE_KEY
     const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
-    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encodeURIComponent(query) + '.json?access_token=' + token + '&proximity=' + center[0] + ',' + center[1] + '&country=US&types=poi,address&limit=5'
-    try {
-      const res = await fetch(url)
-      const data = await res.json()
-      const places = (data.features ?? []).map((f: any) => ({
-        name: f.text,
-        address: f.place_name,
-      }))
-      if (type === 'meeting') setMeetingSuggestions(places)
-      else setDestSuggestions(places)
-    } catch (e) {
-      console.error('Search error:', e)
-    }
+    const url = 'https://api.foursquare.com/v3/autocomplete?query=' + encodeURIComponent(query) + '&ll=' + center[1] + ',' + center[0] + '&types=place&limit=6'
+    const res = await fetch(url, { headers: { Authorization: key!, Accept: 'application/json' } })
+    const data = await res.json()
+    const places = (data.results ?? []).map((f: any) => ({
+      name: f.text?.primary || f.place?.name || '',
+      address: f.text?.secondary || '',
+    })).filter((p: any) => p.name)
+    type === 'meeting' ? setMeetingSuggestions(places) : setDestSuggestions(places)
   }
 
   const suggestMeetingPlaces = async () => {
     if (!selectedStates.length) return
     setLoadingSuggestions(true)
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+    const key = process.env.NEXT_PUBLIC_FOURSQUARE_KEY
     const center = STATE_CENTERS[selectedStates[0]] || [-74.006, 40.7128]
     const searchTerm = character === 'breakfast' ? 'restaurant' : character === 'scenic' ? 'park' : 'restaurant'
-    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encodeURIComponent(searchTerm) + '.json?access_token=' + token + '&proximity=' + center[0] + ',' + center[1] + '&country=US&types=poi&limit=5'
-    try {
-      const res = await fetch(url)
-      const data = await res.json()
-      const places = (data.features ?? []).map((f: any) => ({
-        name: f.text,
-        address: f.place_name,
-      }))
-      setMeetingSuggestions(places)
-    } catch (e) {
-      console.error('Suggest error:', e)
-    }
+    const url = 'https://api.foursquare.com/v3/autocomplete?query=' + encodeURIComponent(searchTerm) + '&ll=' + center[1] + ',' + center[0] + '&types=place&limit=6'
+    const res = await fetch(url, { headers: { Authorization: key!, Accept: 'application/json' } })
+    const data = await res.json()
+    const places = (data.results ?? []).map((f: any) => ({
+      name: f.text?.primary || f.place?.name || '',
+      address: f.text?.secondary || '',
+    })).filter((p: any) => p.name)
+    setMeetingSuggestions(places)
     setLoadingSuggestions(false)
   }
 
