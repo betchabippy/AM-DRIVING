@@ -38,7 +38,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   )
 }
 
-export default function CreateDrivePage() 
+export default function CreateDrivePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [userCars, setUserCars] = useState<any[]>([])
@@ -270,7 +270,7 @@ export default function CreateDrivePage()
           <div>
             <p className="section-label mb-2">Drive name</p>
             <input type="text"
-              placeholder="Name your drive"
+              placeholder={character.charAt(0).toUpperCase() + character.slice(1) + ' drive'}
               value={title} onChange={e => setTitle(e.target.value)} className="input-dark" />
           </div>
 
