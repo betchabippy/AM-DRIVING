@@ -58,7 +58,8 @@ export default function GaragePage() {
       is_primary: isPrimary,
     }).select().single()
     setSaving(false)
-    if (!error && data) {
+    if (error) { console.error('Insert error:', error); alert(JSON.stringify(error)) }
+if (!error && data) {
       setCars(prev => [...prev, data])
       setShowAddCar(false)
       setMake('Aston Martin'); setModel(''); setYear(''); setColor(''); setSpec(''); setNickname(''); setClub('None')
