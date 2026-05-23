@@ -1,4 +1,4 @@
-# RALLY — Road Enthusiast App
+# AMdriving — Road Enthusiast App
 
 A web application for driving enthusiasts to discover, create and join scenic drives together. Built for clubs like AMOC, PCA, Grenadier Club and open to all car lovers.
 
