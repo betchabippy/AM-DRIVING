@@ -270,7 +270,7 @@ export default function CreateDrivePage() {
           <div>
             <p className="section-label mb-2">Drive name</p>
             <input type="text"
-              placeholder={character.charAt(0).toUpperCase() + character.slice(1) + ' drive'}
+              placeholder="Name your drive"
               value={title} onChange={e => setTitle(e.target.value)} className="input-dark" />
           </div>
 
