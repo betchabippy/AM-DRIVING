@@ -1,11 +1,15 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, Clock, MapPin, Flag, Users, Check, Minus, X, Globe, Lock, Shield } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Flag, Users, Check, Minus, X, Globe, Lock, Shield } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { format, parseISO } from 'date-fns'
 
-export default function DriveDetailPage({ params }: { params: { id: string } }) {
+export default function DriveDetailPage() {
+  const params = useParams()
+  const id = params.id as string
+
   const [drive, setDrive] = useState<any>(null)
   const [user, setUser] = useState<any>(null)
   const [userCars, setUserCars] = useState<any[]>([])
@@ -17,6 +21,7 @@ export default function DriveDetailPage({ params }: { params: { id: string } }) 
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    if (!id) return
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
@@ -24,28 +29,26 @@ export default function DriveDetailPage({ params }: { params: { id: string } }) 
         const { data: cars } = await supabase.from('cars').select('*').eq('user_id', user.id)
         setUserCars(cars ?? [])
         if (cars && cars.length > 0) setSelectedCar(cars[0].id)
-
         const { data: rsvp } = await supabase.from('rsvps')
-          .select('*').eq('drive_id', params.id).eq('user_id', user.id).single()
+          .select('*').eq('drive_id', id).eq('user_id', user.id).maybeSingle()
         if (rsvp) setRsvpStatus(rsvp.status)
       }
-
       const { data: driveData } = await supabase
         .from('drives')
         .select('*, profiles(name)')
-        .eq('id', params.id)
-        .single()
+        .eq('id', id)
+        .maybeSingle()
       setDrive(driveData)
       setLoading(false)
     }
     load()
-  }, [params.id])
+  }, [id])
 
   const handleRsvp = async (status: string) => {
     if (!user) return
     setSaving(true)
     await supabase.from('rsvps').upsert({
-      drive_id: params.id,
+      drive_id: id,
       user_id: user.id,
       car_id: selectedCar || null,
       status,
@@ -65,7 +68,6 @@ export default function DriveDetailPage({ params }: { params: { id: string } }) 
         <ArrowLeft size={15} /> Back to drives
       </Link>
 
-      {/* Hero */}
       <div className="map-placeholder h-40 rounded-card mb-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-base/80 to-transparent" />
         <div className="absolute bottom-4 left-4 right-4">
@@ -73,19 +75,17 @@ export default function DriveDetailPage({ params }: { params: { id: string } }) 
             {drive.visibility === 'private' && <Lock size={12} className="text-gray-400" />}
             {drive.visibility === 'open' && <Globe size={12} className="text-gray-400" />}
             {drive.visibility === 'club' && <Shield size={12} className="text-gray-400" />}
-            {drive.club_name && <span className="pill-purple text-[10px]">{drive.club_name}</span>}
           </div>
           <h1 className="font-display text-3xl text-white">{drive.title}</h1>
           {drive.profiles?.name && <p className="text-sm text-gray-400 mt-1">Organized by {drive.profiles.name}</p>}
         </div>
       </div>
 
-      {/* Info */}
       <div className="card divide-y divide-surface-border mb-6">
         <div className="flex items-start gap-3 p-4">
           <Calendar size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
           <div>
-            <div className="text-xs text-gray-500 mb-0.5">Date & time</div>
+            <div className="text-xs text-gray-500 mb-0.5">Date and time</div>
             <div className="text-sm text-white">
               {drive.drive_date ? format(parseISO(drive.drive_date), 'EEEE, MMMM d, yyyy') : '—'} · {drive.depart_time || '—'}
             </div>
@@ -111,7 +111,7 @@ export default function DriveDetailPage({ params }: { params: { id: string } }) 
         )}
         {drive.states && drive.states.length > 0 && (
           <div className="flex items-start gap-3 p-4">
-            <Users size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
+            <MapPin size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
             <div>
               <div className="text-xs text-gray-500 mb-0.5">Area</div>
               <div className="text-sm text-white">{drive.states.join(', ')}</div>
@@ -122,8 +122,8 @@ export default function DriveDetailPage({ params }: { params: { id: string } }) 
           <div className="flex items-start gap-3 p-4">
             <Users size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
             <div>
-              <div className="text-xs text-gray-500 mb-0.5">Spots available</div>
-              <div className="text-sm text-white">{drive.max_spots} max</div>
+              <div className="text-xs text-gray-500 mb-0.5">Max spots</div>
+              <div className="text-sm text-white">{drive.max_spots}</div>
             </div>
           </div>
         )}
@@ -135,7 +135,6 @@ export default function DriveDetailPage({ params }: { params: { id: string } }) 
         </div>
       )}
 
-      {/* RSVP panel */}
       {showRsvp && (
         <div className="card p-5 mb-4 animate-slide-up">
           <h3 className="font-medium text-white mb-4">RSVP to this drive</h3>
@@ -175,7 +174,6 @@ export default function DriveDetailPage({ params }: { params: { id: string } }) 
         </div>
       )}
 
-      {/* RSVP buttons */}
       {!showRsvp && (
         <div className="flex gap-2">
           {rsvpStatus === 'going' ? (
