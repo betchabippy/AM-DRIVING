@@ -253,7 +253,7 @@ export default function CreateDrivePage() {
                 <div className="text-xs text-gray-600 mb-2">{route.miles} mi · {Math.round(route.durationMinutes / 60 * 10) / 10}h · {route.states.join(', ')}</div>
                 <div className="flex gap-2 flex-wrap">
                   {route.rating > 0 && <span className="pill-green">★ {route.rating}</span>}
-                  {route.character.map(c => <span key={c} className="pill-gold capitalize">{c}</span>)}
+                  {(route.character ?? []).map((c: string) => <span key={c} className="pill-gold capitalize">{c}</span>)}
                 </div>
               </div>
             </button>
