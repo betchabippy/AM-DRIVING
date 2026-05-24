@@ -60,7 +60,7 @@ export default function CreateDrivePage() {
   const [meetingSuggestions, setMeetingSuggestions] = useState<any[]>([])
   const [destSuggestions, setDestSuggestions] = useState<any[]>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
-
+  const [previewRoute, setPreviewRoute] = useState<any>(null)
   const [dbRoutes, setDbRoutes] = useState<any[]>([])
 
   useEffect(() => {
@@ -237,10 +237,10 @@ export default function CreateDrivePage() {
         <div className="animate-slide-up space-y-4">
           <div>
             <h2 className="font-display text-3xl text-white mb-1">Choose a route</h2>
-            <p className="text-gray-500 text-sm">Community rated routes in your area</p>
+            <p className="text-gray-500 text-sm">Tap a route to preview before selecting</p>
           </div>
           {dbRoutes.map(route => (
-            <button key={route.id} onClick={() => setSelectedRoute(route.id)}
+            <button key={route.id} onClick={() => setPreviewRoute(route)}
               className={clsx('w-full text-left rounded-card border overflow-hidden transition-all',
                 selectedRoute === route.id ? 'border-gold-400' : 'border-surface-border hover:border-gray-600'
               )}>
@@ -258,12 +258,106 @@ export default function CreateDrivePage() {
               </div>
             </button>
           ))}
+
+          {/* Route preview modal */}
+          {previewRoute && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+              onClick={() => setPreviewRoute(null)}>
+              <div className="w-full max-w-2xl bg-surface-raised rounded-t-3xl overflow-hidden animate-slide-up max-h-[85vh] overflow-y-auto"
+                onClick={e => e.stopPropagation()}>
+                {/* Handle */}
+                <div className="flex justify-center pt-3 pb-1">
+                  <div className="w-10 h-1 rounded-full bg-surface-border" />
+                </div>
+
+                {/* Map preview */}
+                <div className="h-44 map-placeholder relative mx-4 rounded-xl overflow-hidden mb-4">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute bottom-3 left-4">
+                    <h2 className="font-display text-2xl text-white">{previewRoute.name}</h2>
+                  </div>
+                  {previewRoute.is_curated && (
+                    <div className="absolute top-3 right-3">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-950/80 text-gold-400 border border-gold-400/20">Curated</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-4 pb-6 space-y-4">
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Distance', value: previewRoute.miles + ' mi' },
+                      { label: 'Duration', value: Math.round((previewRoute.duration_mins || 0) / 60 * 10) / 10 + 'h' },
+                      { label: 'Rating', value: previewRoute.rating > 0 ? '★ ' + previewRoute.rating : 'New' },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="bg-surface border border-surface-border rounded-xl p-3 text-center">
+                        <div className="font-mono text-sm font-medium text-gold-400">{value}</div>
+                        <div className="text-xs text-gray-600 mt-0.5">{label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Character tags */}
+                  <div className="flex gap-2 flex-wrap">
+                    {(previewRoute.character ?? []).map((c: string) => (
+                      <span key={c} className="pill-gold capitalize">{c}</span>
+                    ))}
+                    {(previewRoute.states ?? []).map((s: string) => (
+                      <span key={s} className="pill" style={{ background: '#1a1a1a', color: '#888' }}>{s}</span>
+                    ))}
+                    {previewRoute.drive_count > 0 && (
+                      <span className="pill" style={{ background: '#1a1a1a', color: '#888' }}>{previewRoute.drive_count} drives</span>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  {previewRoute.description && (
+                    <p className="text-sm text-gray-400 leading-relaxed">{previewRoute.description}</p>
+                  )}
+
+                  {/* Waypoints */}
+                  {(previewRoute.waypoints ?? []).length > 0 && (
+                    <div>
+                      <p className="section-label mb-2">Waypoints</p>
+                      <div className="card divide-y divide-surface-border">
+                        {(previewRoute.waypoints ?? []).map((wp: any, i: number) => (
+                          <div key={i} className="flex items-center gap-3 p-3">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${
+                              i === 0 ? 'bg-green-900 text-green-400' :
+                              i === previewRoute.waypoints.length - 1 ? 'bg-amber-900 text-gold-400' :
+                              'bg-surface border border-surface-border text-gray-500'
+                            }`}>
+                              {i === 0 ? '▶' : i === previewRoute.waypoints.length - 1 ? '⚑' : i}
+                            </div>
+                            <div className="text-sm text-white">{wp.name}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={() => setPreviewRoute(null)}
+                      className="flex-1 btn-outline">
+                      Back
+                    </button>
+                    <button onClick={() => { setSelectedRoute(previewRoute.id); setPreviewRoute(null) }}
+                      className="flex-1 btn-gold flex items-center justify-center gap-2">
+                      <Check size={15} /> Select this route
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button onClick={next} className="w-full btn-gold flex items-center justify-center gap-2">
             Next — Details and publish <ArrowRight size={15} />
           </button>
         </div>
       )}
-
       {step === 3 && (
         <div className="animate-slide-up space-y-6">
           <div>
