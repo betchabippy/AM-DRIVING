@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 const links = [
   { href: '/',           label: 'Discover',  icon: Compass },
   { href: '/drives',     label: 'Drives',    icon: Gauge },
+  { href: '/routes',     label: 'Routes',    icon: Map },
   { href: '/my-drives',  label: 'My drives', icon: Flag },
   { href: '/clubs',      label: 'Clubs',     icon: Users },
   { href: '/garage',     label: 'Garage',    icon: Car },
