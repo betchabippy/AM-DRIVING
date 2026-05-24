@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, MapPin, Flag, Users, Check, Minus, X, Globe, Lock, Shield, Share2, Pencil } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Flag, Users, Check, Minus, X, Globe, Lock, Shield, Share2, Pencil, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { format, parseISO } from 'date-fns'
 
@@ -22,7 +22,11 @@ export default function DriveDetailPage() {
   const [showRsvp, setShowRsvp] = useState(false)
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
-
+  const [showRating, setShowRating] = useState(false)
+  const [userRating, setUserRating] = useState(0)
+  const [ratingNote, setRatingNote] = useState('')
+  const [ratingSubmitted, setRatingSubmitted] = useState(false)
+  const [hoverRating, setHoverRating] = useState(0)
   const loadAttendees = async () => {
     const { data } = await supabase
       .from('rsvps')
@@ -83,7 +87,32 @@ export default function DriveDetailPage() {
       setTimeout(() => setCopied(false), 2000)
     }
   }
+const handleRateRoute = async () => {
+    if (!user || !drive?.route_id || userRating === 0) return
+    await supabase.from('route_ratings').upsert({
+      route_id: drive.route_id,
+      user_id: user.id,
+      drive_id: id,
+      rating: userRating,
+      note: ratingNote || null,
+    })
+    const { data: ratings } = await supabase
+      .from('route_ratings')
+      .select('rating')
+      .eq('route_id', drive.route_id)
+    if (ratings && ratings.length > 0) {
+      const avg = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length
+      await supabase.from('routes').update({
+        rating: Math.round(avg * 10) / 10,
+        drive_count: ratings.length
+      }).eq('id', drive.route_id)
+    }
+    setRatingSubmitted(true)
+    setShowRating(false)
+  }
 
+  const driveHasPassed = drive?.drive_date && new Date(drive.drive_date) < new Date()
+  const userWentOnDrive = rsvpStatus === 'going' && driveHasPassed
   const isOrganizer = user && drive && user.id === drive.organizer_id
   const goingAttendees = attendees.filter(a => a.status === 'going')
   const maybeAttendees = attendees.filter(a => a.status === 'maybe')
@@ -296,6 +325,55 @@ export default function DriveDetailPage() {
         <p className="text-xs text-gray-600 text-center mt-3">
           This is an open drive — any member can join.
         </p>
+      )}
+      {/* Rate this route */}
+      {userWentOnDrive && drive.route_id && !ratingSubmitted && (
+        <div className="mt-6">
+          {!showRating ? (
+            <button onClick={() => setShowRating(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gold-400/30 text-gold-400 text-sm hover:bg-amber-950/20 transition-colors">
+              <Star size={15} /> Rate this route
+            </button>
+          ) : (
+            <div className="card p-5 animate-slide-up">
+              <h3 className="font-medium text-white mb-4">How was the route?</h3>
+              
+              {/* Star selector */}
+              <div className="flex gap-2 justify-center mb-4">
+                {[1,2,3,4,5].map(star => (
+                  <button key={star}
+                    onClick={() => setUserRating(star)}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}>
+                    <Star size={32} className={`transition-colors ${
+                      star <= (hoverRating || userRating) ? 'text-gold-400 fill-gold-400' : 'text-gray-600'
+                    }`} />
+                  </button>
+                ))}
+              </div>
+
+              <input type="text" placeholder="Add a note — road conditions, highlights, tips..."
+                value={ratingNote} onChange={e => setRatingNote(e.target.value)}
+                className="input-dark mb-4" />
+
+              <div className="flex gap-2">
+                <button onClick={handleRateRoute} disabled={userRating === 0}
+                  className="flex-1 btn-gold disabled:opacity-50">
+                  Submit rating
+                </button>
+                <button onClick={() => setShowRating(false)} className="btn-outline px-4">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {ratingSubmitted && (
+        <div className="mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-green-900/30 border border-green-800 text-green-400 text-sm">
+          <Check size={15} /> Thanks for rating this route!
+        </div>
       )}
     </div>
   )
