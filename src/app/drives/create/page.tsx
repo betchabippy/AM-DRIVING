@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, RotateCcw, MapPin, GitMerge, Flag, Check, Search, X } from 'lucide-react'
-import { mockRoutes } from '@/lib/mock-data'
 import { supabase } from '@/lib/supabase'
 import type { DriveType, DriveCharacter, DriveVisibility } from '@/types'
 import clsx from 'clsx'
@@ -62,6 +61,8 @@ export default function CreateDrivePage() {
   const [destSuggestions, setDestSuggestions] = useState<any[]>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
 
+  const [dbRoutes, setDbRoutes] = useState<any[]>([])
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -71,6 +72,8 @@ export default function CreateDrivePage() {
         setUserCars(cars ?? [])
         if (cars && cars.length > 0) setSelectedCar(cars[0].id)
       }
+      const { data: routes } = await supabase.from('routes').select('*').order('rating', { ascending: false })
+      setDbRoutes(routes ?? [])
     }
     load()
   }, [])
@@ -236,7 +239,7 @@ export default function CreateDrivePage() {
             <h2 className="font-display text-3xl text-white mb-1">Choose a route</h2>
             <p className="text-gray-500 text-sm">Community rated routes in your area</p>
           </div>
-          {mockRoutes.map(route => (
+          {dbRoutes.map(route => (
             <button key={route.id} onClick={() => setSelectedRoute(route.id)}
               className={clsx('w-full text-left rounded-card border overflow-hidden transition-all',
                 selectedRoute === route.id ? 'border-gold-400' : 'border-surface-border hover:border-gray-600'
