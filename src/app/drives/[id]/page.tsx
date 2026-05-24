@@ -301,22 +301,30 @@ const handleRateRoute = async () => {
       )}
 
       {!showRsvp && (
-        <div className="flex gap-2">
-          {rsvpStatus === 'going' ? (
-            <div className="flex-1 flex items-center justify-center gap-2 bg-green-900/30 border border-green-800 rounded-xl py-3 text-sm text-green-400 font-medium">
-              <Check size={15} /> You are going
-            </div>
-          ) : rsvpStatus === 'maybe' ? (
-            <div className="flex-1 flex items-center justify-center gap-2 bg-amber-900/30 border border-amber-800 rounded-xl py-3 text-sm text-amber-400 font-medium">
-              <Minus size={15} /> Maybe going
-            </div>
-          ) : (
-            <button onClick={() => setShowRsvp(true)} className="flex-1 btn-gold">
-              RSVP — I am going
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            {rsvpStatus === 'going' ? (
+              <div className="flex-1 flex items-center justify-center gap-2 bg-green-900/30 border border-green-800 rounded-xl py-3 text-sm text-green-400 font-medium">
+                <Check size={15} /> You are going
+              </div>
+            ) : rsvpStatus === 'maybe' ? (
+              <div className="flex-1 flex items-center justify-center gap-2 bg-amber-900/30 border border-amber-800 rounded-xl py-3 text-sm text-amber-400 font-medium">
+                <Minus size={15} /> Maybe going
+              </div>
+            ) : (
+              <button onClick={() => setShowRsvp(true)} className="flex-1 btn-gold">
+                RSVP — I am going
+              </button>
+            )}
+            {rsvpStatus === 'pending' && (
+              <button onClick={() => handleRsvp('maybe')} className="btn-outline">Maybe</button>
+            )}
+          </div>
+          {(rsvpStatus === 'going' || rsvpStatus === 'maybe') && (
+            <button onClick={() => setShowRsvp(true)}
+              className="w-full text-xs text-gray-500 hover:text-white transition-colors py-2">
+              Change my RSVP
             </button>
-          )}
-          {rsvpStatus === 'pending' && (
-            <button onClick={() => handleRsvp('maybe')} className="btn-outline">Maybe</button>
           )}
         </div>
       )}
