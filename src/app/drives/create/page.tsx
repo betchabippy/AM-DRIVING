@@ -123,6 +123,7 @@ export default function CreateDrivePage() {
       states: selectedStates, organizer_id: user.id,
       max_spots: parseInt(maxSpots) || null,
       description: description || null,
+      route_id: selectedRoute || null,
     }).select().single()
     setSaving(false)
     if (error) { alert(JSON.stringify(error)); return }
@@ -391,7 +392,9 @@ export default function CreateDrivePage() {
           <div>
             <p className="section-label mb-3">Date and time</p>
             <div className="grid grid-cols-2 gap-3">
-              <input type="date" value={driveDate} onChange={e => setDriveDate(e.target.value)} className="input-dark" />
+              <input type="date" value={driveDate} onChange={e => setDriveDate(e.target.value)} 
+  min={new Date().toISOString().split('T')[0]}
+  className="input-dark" />
               <input type="time" value={driveTime} onChange={e => setDriveTime(e.target.value)} className="input-dark" />
             </div>
           </div>
