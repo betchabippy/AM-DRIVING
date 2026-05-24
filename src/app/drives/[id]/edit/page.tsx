@@ -1,316 +1,220 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, Calendar, MapPin, Flag, Users, Check, Minus, X, Globe, Lock, Shield, Share2, Pencil } from 'lucide-react'
+import { ArrowLeft, Flag, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { format, parseISO } from 'date-fns'
+import type { DriveVisibility } from '@/types'
+import clsx from 'clsx'
 
-export default function DriveDetailPage() {
+const CHARACTERS = ['spirited', 'leisurely', 'scenic', 'breakfast', 'sunset']
+const NE_STATES = ['NY', 'CT', 'VT', 'MA', 'NH', 'ME', 'NJ', 'PA']
+const MID_STATES = ['VA', 'MD', 'NC', 'SC', 'TN', 'WV']
+
+export default function EditDrivePage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
 
-  const [drive, setDrive] = useState<any>(null)
-  const [user, setUser] = useState<any>(null)
-  const [userCars, setUserCars] = useState<any[]>([])
-  const [attendees, setAttendees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedCar, setSelectedCar] = useState('')
-  const [note, setNote] = useState('')
-  const [rsvpStatus, setRsvpStatus] = useState<string>('pending')
-  const [showRsvp, setShowRsvp] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [title, setTitle] = useState('')
+  const [character, setCharacter] = useState('spirited')
+  const [visibility, setVisibility] = useState<DriveVisibility>('open')
+  const [driveDate, setDriveDate] = useState('')
+  const [driveTime, setDriveTime] = useState('09:00')
+  const [meetingPoint, setMeetingPoint] = useState('')
+  const [destination, setDestination] = useState('')
+  const [routeDescription, setRouteDescription] = useState('')
+  const [maxSpots, setMaxSpots] = useState('10')
+  const [description, setDescription] = useState('')
+  const [selectedStates, setSelectedStates] = useState<string[]>([])
 
   useEffect(() => {
     if (!id) return
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUser(user)
-        const { data: cars } = await supabase.from('cars').select('*').eq('user_id', user.id)
-        setUserCars(cars ?? [])
-        if (cars && cars.length > 0) setSelectedCar(cars[0].id)
-        const { data: rsvp } = await supabase.from('rsvps')
-          .select('*').eq('drive_id', id).eq('user_id', user.id).maybeSingle()
-        if (rsvp) setRsvpStatus(rsvp.status)
-      }
+      if (!user) { router.push('/login'); return }
 
-      const { data: driveData } = await supabase
-        .from('drives')
-        .select('*, profiles(name)')
-        .eq('id', id)
-        .maybeSingle()
-      setDrive(driveData)
+      const { data: drive } = await supabase.from('drives').select('*').eq('id', id).single()
+      if (!drive) { router.push('/drives'); return }
+      if (drive.organizer_id !== user.id) { router.push('/drives/' + id); return }
 
-      const { data: rsvpData } = await supabase
-        .from('rsvps')
-        .select('*, profiles(name), cars(make, model, year, color, color_hex, photo_url, club_name)')
-        .eq('drive_id', id)
-        .order('created_at', { ascending: true })
-      setAttendees(rsvpData ?? [])
-
+      setTitle(drive.title || '')
+      setCharacter(drive.character || 'spirited')
+      setVisibility(drive.visibility || 'open')
+      setDriveDate(drive.drive_date || '')
+      setDriveTime(drive.depart_time || '09:00')
+      setMeetingPoint(drive.meeting_point || '')
+      setDestination(drive.destination || '')
+      setRouteDescription(drive.route_description || '')
+      setMaxSpots(drive.max_spots?.toString() || '10')
+      setDescription(drive.description || '')
+      setSelectedStates(drive.states || [])
       setLoading(false)
     }
     load()
   }, [id])
 
-  const handleRsvp = async (status: string) => {
-    if (!user) return
+  const toggleState = (s: string) =>
+    setSelectedStates(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
+
+  const handleSave = async () => {
+    if (!title || !driveDate) return
     setSaving(true)
-    await supabase.from('rsvps').upsert({
-      drive_id: id, user_id: user.id,
-      car_id: selectedCar || null,
-      status, note: note || null,
-    })
-    setRsvpStatus(status)
-    setShowRsvp(false)
+    await supabase.from('drives').update({
+      title, character, visibility,
+      drive_date: driveDate, depart_time: driveTime,
+      meeting_point: meetingPoint || null,
+      destination: destination || null,
+      route_description: routeDescription || null,
+      states: selectedStates,
+      max_spots: parseInt(maxSpots) || null,
+      description: description || null,
+    }).eq('id', id)
     setSaving(false)
-    // Refresh attendees
-    const { data: rsvpData } = await supabase
-      .from('rsvps')
-      .select('*, profiles(name), cars(make, model, year, color, color_hex, photo_url, club_name)')
-      .eq('drive_id', id)
-      .order('created_at', { ascending: true })
-    setAttendees(rsvpData ?? [])
+    router.push('/drives/' + id)
   }
 
-  const handleShare = () => {
-    const url = window.location.href
-    if (navigator.share) {
-      navigator.share({ title: drive?.title, url })
-    } else {
-      navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
+  const handleDelete = async () => {
+    setDeleting(true)
+    await supabase.from('rsvps').delete().eq('drive_id', id)
+    await supabase.from('drives').delete().eq('id', id)
+    router.push('/drives')
   }
-
-  const isOrganizer = user && drive && user.id === drive.organizer_id
-  const goingAttendees = attendees.filter(a => a.status === 'going')
-  const maybeAttendees = attendees.filter(a => a.status === 'maybe')
 
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-500">Loading...</div>
-  if (!drive) return <div className="flex items-center justify-center h-64 text-gray-500">Drive not found</div>
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 pb-32 md:pb-8">
-      <div className="flex items-center justify-between mb-6">
-        <Link href="/drives" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors">
-          <ArrowLeft size={15} /> Back to drives
-        </Link>
-        <div className="flex items-center gap-2">
-          <button onClick={handleShare} className="flex items-center gap-2 text-xs btn-outline">
-            <Share2 size={13} /> {copied ? 'Copied!' : 'Share'}
-          </button>
-          {isOrganizer && (
-            <button onClick={() => router.push('/drives/' + id + '/edit')}
-              className="flex items-center gap-2 text-xs btn-outline">
-              <Pencil size={13} /> Edit
-            </button>
-          )}
-        </div>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 pb-24 md:pb-8">
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={() => router.push('/drives/' + id)}
+          className="w-9 h-9 rounded-xl bg-surface-raised border border-surface-border flex items-center justify-center hover:border-gray-500 transition-colors">
+          <ArrowLeft size={16} />
+        </button>
+        <h1 className="font-display text-2xl text-white">Edit drive</h1>
       </div>
 
-      <div className="map-placeholder h-40 rounded-card mb-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-base/80 to-transparent" />
-        <div className="absolute bottom-4 left-4 right-4">
-          <div className="flex items-center gap-2 mb-2">
-            {drive.visibility === 'private' && <Lock size={12} className="text-gray-400" />}
-            {drive.visibility === 'open' && <Globe size={12} className="text-gray-400" />}
-            {drive.visibility === 'club' && <Shield size={12} className="text-gray-400" />}
-          </div>
-          <h1 className="font-display text-3xl text-white">{drive.title}</h1>
-          {drive.profiles?.name && <p className="text-sm text-gray-400 mt-1">Organized by {drive.profiles.name}</p>}
+      <div className="space-y-6">
+        <div>
+          <p className="section-label mb-2">Drive name</p>
+          <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="input-dark" />
         </div>
-      </div>
 
-      {/* Drive info */}
-      <div className="card divide-y divide-surface-border mb-6">
-        <div className="flex items-start gap-3 p-4">
-          <Calendar size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <div className="text-xs text-gray-500 mb-0.5">Date and time</div>
-            <div className="text-sm text-white">
-              {drive.drive_date ? format(parseISO(drive.drive_date), 'EEEE, MMMM d, yyyy') : '—'} · {drive.depart_time || '—'}
-            </div>
-          </div>
-        </div>
-        {drive.meeting_point && (
-          <div className="flex items-start gap-3 p-4">
-            <MapPin size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="text-xs text-gray-500 mb-0.5">Meeting point</div>
-              <div className="text-sm text-white">{drive.meeting_point}</div>
-            </div>
-          </div>
-        )}
-        {drive.destination && (
-          <div className="flex items-start gap-3 p-4">
-            <Flag size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="text-xs text-gray-500 mb-0.5">Destination</div>
-              <div className="text-sm text-white">{drive.destination}</div>
-            </div>
-          </div>
-        )}
-        {drive.states && drive.states.length > 0 && (
-          <div className="flex items-start gap-3 p-4">
-            <MapPin size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="text-xs text-gray-500 mb-0.5">Area</div>
-              <div className="text-sm text-white">{drive.states.join(', ')}</div>
-            </div>
-          </div>
-        )}
-        {drive.max_spots && (
-          <div className="flex items-start gap-3 p-4">
-            <Users size={16} className="text-gold-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="text-xs text-gray-500 mb-0.5">Spots</div>
-              <div className="text-sm text-white">{goingAttendees.length} going · {drive.max_spots} max</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Route description */}
-      {drive.route_description && (
-        <div className="card p-5 mb-6">
-          <div className="text-xs text-gray-500 mb-2 font-medium tracking-widest uppercase">Route</div>
-          <p className="text-sm text-gray-300 leading-relaxed">{drive.route_description}</p>
-        </div>
-      )}
-
-      {/* Description */}
-      {drive.description && (
-        <div className="card p-4 mb-6">
-          <p className="text-sm text-gray-400 leading-relaxed">{drive.description}</p>
-        </div>
-      )}
-
-      {/* Attendee manifest */}
-      {attendees.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="section-label">
-              Going ({goingAttendees.length})
-              {maybeAttendees.length > 0 && <span className="text-gray-600 ml-2">· {maybeAttendees.length} maybe</span>}
-            </h2>
-          </div>
-          <div className="card divide-y divide-surface-border">
-            {attendees.map(a => (
-              <div key={a.id} className="flex items-center gap-3 p-4">
-                {/* Avatar */}
-                <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 bg-surface border border-surface-border text-gold-400">
-                  {a.profiles?.name ? a.profiles.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : '?'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white">{a.profiles?.name || 'Member'}</div>
-                  {a.cars && (
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      {a.cars.year} {a.cars.make} {a.cars.model}
-                      {a.cars.color && ` · ${a.cars.color}`}
-                      {a.cars.club_name && ` · ${a.cars.club_name}`}
-                    </div>
-                  )}
-                  {a.note && <div className="text-xs text-gray-600 mt-0.5 italic">"{a.note}"</div>}
-                </div>
-                {/* Car color dot */}
-                {a.cars?.color_hex && (
-                  <div className="w-6 h-6 rounded-full flex-shrink-0 border border-white/10"
-                    style={{ background: a.cars.color_hex }} />
-                )}
-                {/* Status */}
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  a.status === 'going' ? 'bg-green-900' : a.status === 'maybe' ? 'bg-amber-900' : 'bg-surface-border'
-                }`}>
-                  {a.status === 'going' && <Check size={10} className="text-green-400" />}
-                  {a.status === 'maybe' && <Minus size={10} className="text-amber-400" />}
-                </div>
-              </div>
+        <div>
+          <p className="section-label mb-3">Drive character</p>
+          <div className="flex flex-wrap gap-2">
+            {CHARACTERS.map(c => (
+              <button key={c} onClick={() => setCharacter(c)}
+                className={clsx('px-4 py-2 rounded-full text-xs font-medium border transition-all capitalize',
+                  character === c ? 'border-gold-400 bg-amber-950/40 text-gold-400' : 'border-surface-border text-gray-500 hover:border-gray-500'
+                )}>{c}</button>
             ))}
           </div>
         </div>
-      )}
 
-      {/* RSVP panel */}
-      {showRsvp && (
-        <div className="card p-5 mb-4 animate-slide-up">
-          <h3 className="font-medium text-white mb-4">RSVP to this drive</h3>
-          {userCars.length > 0 && (
-            <>
-              <p className="section-label mb-2">Which car are you bringing?</p>
-              <div className="space-y-2 mb-4">
-                {userCars.map(car => (
-                  <button key={car.id} onClick={() => setSelectedCar(car.id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedCar === car.id ? 'border-gold-400 bg-amber-950/30' : 'border-surface-border bg-surface-raised'
-                    }`}>
-                    <div className={`w-2.5 h-2.5 rounded-full border-2 flex-shrink-0 ${
-                      selectedCar === car.id ? 'bg-gold-400 border-gold-400' : 'border-gray-600'
-                    }`} />
-                    {car.photo_url ? (
-                      <img src={car.photo_url} alt={car.model} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: car.color_hex || '#1a1a1a' }} />
-                    )}
-                    <div>
-                      <div className="text-sm font-medium text-white">{car.year} {car.make} {car.model}</div>
-                      <div className="text-xs text-gray-600">{car.color}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          <p className="section-label mb-2">Add a note (optional)</p>
-          <input type="text" placeholder="Can't wait! Running a few mins late..."
-            value={note} onChange={e => setNote(e.target.value)} className="input-dark mb-4" />
-          <div className="flex gap-2">
-            <button onClick={() => handleRsvp('going')} disabled={saving}
-              className="flex-1 btn-gold flex items-center justify-center gap-2">
-              <Check size={14} /> Going
-            </button>
-            <button onClick={() => handleRsvp('maybe')} disabled={saving}
-              className="flex-1 btn-outline flex items-center justify-center gap-2">
-              <Minus size={14} /> Maybe
-            </button>
-            <button onClick={() => setShowRsvp(false)} className="btn-outline px-4">
-              <X size={14} />
-            </button>
+        <div>
+          <p className="section-label mb-3">Who can join?</p>
+          <div className="flex bg-surface-raised border border-surface-border rounded-xl overflow-hidden">
+            {(['private', 'club', 'open'] as DriveVisibility[]).map(v => (
+              <button key={v} onClick={() => setVisibility(v)}
+                className={clsx('flex-1 py-2.5 text-xs font-medium capitalize transition-all',
+                  visibility === v ? 'bg-gold-400 text-black' : 'text-gray-500 hover:text-gray-300'
+                )}>
+                {v === 'private' ? 'Invite only' : v === 'club' ? 'Club members' : 'All members'}
+              </button>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* RSVP status */}
-      {!showRsvp && (
-        <div className="flex gap-2">
-          {rsvpStatus === 'going' ? (
-            <div className="flex-1 flex items-center justify-center gap-2 bg-green-900/30 border border-green-800 rounded-xl py-3 text-sm text-green-400 font-medium">
-              <Check size={15} /> You are going
-            </div>
-          ) : rsvpStatus === 'maybe' ? (
-            <div className="flex-1 flex items-center justify-center gap-2 bg-amber-900/30 border border-amber-800 rounded-xl py-3 text-sm text-amber-400 font-medium">
-              <Minus size={15} /> Maybe going
-            </div>
-          ) : (
-            <button onClick={() => setShowRsvp(true)} className="flex-1 btn-gold">
-              RSVP — I am going
+        <div>
+          <p className="section-label mb-3">Date and time</p>
+          <div className="grid grid-cols-2 gap-3">
+            <input type="date" value={driveDate} onChange={e => setDriveDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]} className="input-dark" />
+            <input type="time" value={driveTime} onChange={e => setDriveTime(e.target.value)} className="input-dark" />
+          </div>
+        </div>
+
+        <div>
+          <p className="section-label mb-3">Area</p>
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            {NE_STATES.map(s => (
+              <button key={s} onClick={() => toggleState(s)}
+                className={clsx('py-3 rounded-xl text-xs font-medium border transition-all',
+                  selectedStates.includes(s) ? 'border-gold-400 bg-amber-950/40 text-gold-400' : 'border-surface-border bg-surface-raised text-gray-500 hover:border-gray-500'
+                )}>{s}</button>
+            ))}
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {MID_STATES.map(s => (
+              <button key={s} onClick={() => toggleState(s)}
+                className={clsx('py-3 rounded-xl text-xs font-medium border transition-all',
+                  selectedStates.includes(s) ? 'border-gold-400 bg-amber-950/40 text-gold-400' : 'border-surface-border bg-surface-raised text-gray-500 hover:border-gray-500'
+                )}>{s}</button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="section-label mb-2">Meeting point</p>
+          <input type="text" value={meetingPoint} onChange={e => setMeetingPoint(e.target.value)}
+            placeholder="e.g. White Flower Farm, Litchfield CT" className="input-dark" />
+        </div>
+
+        <div>
+          <p className="section-label mb-2">Destination</p>
+          <input type="text" value={destination} onChange={e => setDestination(e.target.value)}
+            placeholder="e.g. The Inn at Pound Ridge" className="input-dark" />
+        </div>
+
+        <div>
+          <p className="section-label mb-2">Route description</p>
+          <textarea value={routeDescription} onChange={e => setRouteDescription(e.target.value)}
+            placeholder="Describe the route — roads to take, highlights, any tricky turns..."
+            rows={4} className="input-dark resize-none" />
+        </div>
+
+        <div>
+          <p className="section-label mb-2">Max spots</p>
+          <input type="number" min="2" max="50" value={maxSpots}
+            onChange={e => setMaxSpots(e.target.value)} className="input-dark" />
+        </div>
+
+        <div>
+          <p className="section-label mb-2">Description</p>
+          <textarea value={description} onChange={e => setDescription(e.target.value)}
+            placeholder="Tell people what to expect..." rows={3} className="input-dark resize-none" />
+        </div>
+
+        <button onClick={handleSave} disabled={saving || !title || !driveDate}
+          className="w-full btn-gold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          {saving ? 'Saving...' : 'Save changes'} <Flag size={15} />
+        </button>
+
+        <div className="border-t border-surface-border pt-6">
+          {!showDeleteConfirm ? (
+            <button onClick={() => setShowDeleteConfirm(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-red-900/50 text-red-400 text-sm hover:bg-red-950/20 transition-colors">
+              <Trash2 size={15} /> Cancel this drive
             </button>
-          )}
-          {rsvpStatus === 'pending' && (
-            <button onClick={() => handleRsvp('maybe')} className="btn-outline">Maybe</button>
+          ) : (
+            <div className="card p-4 border-red-900/50">
+              <p className="text-sm text-white mb-4 text-center">Are you sure? This will cancel the drive and remove all RSVPs.</p>
+              <div className="flex gap-3">
+                <button onClick={handleDelete} disabled={deleting}
+                  className="flex-1 py-2.5 rounded-xl bg-red-900/40 border border-red-800 text-red-400 text-sm font-medium hover:bg-red-900/60 transition-colors">
+                  {deleting ? 'Cancelling...' : 'Yes, cancel drive'}
+                </button>
+                <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 btn-outline text-sm">
+                  Keep it
+                </button>
+              </div>
+            </div>
           )}
         </div>
-      )}
-
-      {drive.visibility === 'open' && rsvpStatus === 'pending' && (
-        <p className="text-xs text-gray-600 text-center mt-3">
-          This is an open drive — any member can join.
-        </p>
-      )}
+      </div>
     </div>
   )
 }
