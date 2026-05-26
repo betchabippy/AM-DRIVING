@@ -46,7 +46,7 @@ export default function CreateDrivePage() {
   const [character, setCharacter] = useState<DriveCharacter>('spirited')
   const [duration, setDuration] = useState('2 hrs')
   const [selectedStates, setSelectedStates] = useState<string[]>(['NY'])
-  const [selectedRoute, setSelectedRoute] = useState<string>('route-1')
+  const [selectedRoute, setSelectedRoute] = useState<string>('')
   const [visibility, setVisibility] = useState<DriveVisibility>('open')
   const [selectedCar, setSelectedCar] = useState<string>('')
   const [title, setTitle] = useState('')
