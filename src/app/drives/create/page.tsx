@@ -146,6 +146,43 @@ export default function CreateDrivePage() {
         <div className="ml-auto"><StepIndicator current={step} total={STEPS.length} /></div>
       </div>
 
+      {step === -1 && (
+        <div className="animate-slide-up space-y-6">
+          <div>
+            <h2 className="font-display text-3xl text-white mb-1">Create a drive</h2>
+            <p className="text-gray-500 text-sm">How would you like to plan your route?</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            <button onClick={() => setStep(0)}
+              className="card p-6 text-left hover:border-gold-400 transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-amber-950/40 border border-gold-400/30 flex items-center justify-center flex-shrink-0">
+                  <MapPin size={22} className="text-gold-400" />
+                </div>
+                <div>
+                  <div className="font-display text-xl text-white mb-1 group-hover:text-gold-400 transition-colors">Choose an existing route</div>
+                  <div className="text-sm text-gray-500 leading-relaxed">Pick from our curated route library or community favourites. Set the date, invite friends and go.</div>
+                </div>
+              </div>
+            </button>
+
+            <button onClick={() => setStep(-2)}
+              className="card p-6 text-left hover:border-gold-400 transition-all group">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-blue-950/40 border border-blue-800/50 flex items-center justify-center flex-shrink-0">
+                  <Navigation size={22} className="text-blue-400" />
+                </div>
+                <div>
+                  <div className="font-display text-xl text-white mb-1 group-hover:text-gold-400 transition-colors">Create my own route</div>
+                  <div className="text-sm text-gray-500 leading-relaxed">Plan a custom route with your own waypoints. Google Maps generates the turn-by-turn. Your route is saved to the community library.</div>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
       {step === 0 && (
         <div className="animate-slide-up space-y-6">
           <div>
