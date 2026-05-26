@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight, RotateCcw, MapPin, GitMerge, Flag, Check, Search, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RotateCcw, MapPin, GitMerge, Flag, Check, Search, X, Navigation, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { DriveType, DriveCharacter, DriveVisibility } from '@/types'
 import clsx from 'clsx'
@@ -41,7 +41,7 @@ export default function CreateDrivePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [userCars, setUserCars] = useState<any[]>([])
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(-1)
   const [driveType, setDriveType] = useState<DriveType>('destination')
   const [character, setCharacter] = useState<DriveCharacter>('spirited')
   const [duration, setDuration] = useState('2 hrs')
@@ -62,7 +62,16 @@ export default function CreateDrivePage() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [previewRoute, setPreviewRoute] = useState<any>(null)
   const [dbRoutes, setDbRoutes] = useState<any[]>([])
-
+  const [customWaypoints, setCustomWaypoints] = useState(['', ''])
+  const [customSuggestions, setCustomSuggestions] = useState<any[]>([])
+  const [activeCustomInput, setActiveCustomInput] = useState<number | null>(null)
+  const [generatingCustom, setGeneratingCustom] = useState(false)
+  const [customGenerated, setCustomGenerated] = useState(false)
+  const [customMiles, setCustomMiles] = useState(0)
+  const [customMins, setCustomMins] = useState(0)
+  const [customTurns, setCustomTurns] = useState<any[]>([])
+  const [customRouteId, setCustomRouteId] = useState<string | null>(null)
+  
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -111,6 +120,74 @@ export default function CreateDrivePage() {
     setLoadingSuggestions(false)
   }
 
+  const searchCustomPlace = async (query: string, index: number) => {
+    if (!query || query.length < 3) { setCustomSuggestions([]); return }
+    setActiveCustomInput(index)
+    const res = await fetch('/api/places?query=' + encodeURIComponent(query) + '&lat=41.6&lng=-73.0')
+    const data = await res.json()
+    const places = (data.predictions ?? []).map((p: any) => ({
+      name: p.structured_formatting?.main_text || p.description,
+      address: p.description,
+    }))
+    setCustomSuggestions(places)
+  }
+
+  const generateCustomRoute = async () => {
+    const valid = customWaypoints.filter(wp => wp.trim())
+    if (valid.length < 2) { alert('Please add at least a start and end point'); return }
+    setGeneratingCustom(true)
+    const origin = encodeURIComponent(valid[0])
+    const dest = encodeURIComponent(valid[valid.length - 1])
+    const waypts = valid.slice(1, -1).map(w => encodeURIComponent(w)).join('|')
+    const url = '/api/directions?origin=' + origin + '&destination=' + dest + (waypts ? '&waypoints=' + waypts : '')
+    const res = await fetch(url)
+    const data = await res.json()
+    if (data.status === 'OK' && data.routes?.[0]) {
+      const legs = data.routes[0].legs
+      const totalMeters = legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0)
+      const totalSeconds = legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0)
+      const miles = Math.round(totalMeters * 0.000621371 * 10) / 10
+      const mins = Math.round(totalSeconds / 60)
+      setCustomMiles(miles)
+      setCustomMins(mins)
+      let cum = 0
+      const turns: any[] = []
+      legs.forEach((leg: any) => {
+        leg.steps.forEach((step: any) => {
+          cum += Math.round(step.distance.value * 0.000621371 * 100) / 100
+          turns.push({
+            instruction: step.html_instructions.replace(/<[^>]*>/g, ''),
+            miles: Math.round(cum * 10) / 10,
+            road: step.maneuver || 'continue',
+          })
+        })
+      })
+      setCustomTurns(turns)
+      setCustomGenerated(true)
+
+      // Save route to library
+      if (user) {
+        const { data: savedRoute } = await supabase.from('routes').insert({
+          name: title || 'Custom drive route',
+          states: selectedStates,
+          miles,
+          duration_mins: mins,
+          character,
+          rating: 0,
+          drive_count: 0,
+          is_curated: false,
+          created_by: user.id,
+          waypoints: valid.map(w => ({ name: w, address: w, lat: 0, lng: 0 })),
+          turns,
+        }).select().single()
+        if (savedRoute) setCustomRouteId(savedRoute.id)
+      }
+    } else {
+      alert('Could not generate route. Please check your waypoints.')
+    }
+    setGeneratingCustom(false)
+  }
+  
   const handlePublish = async () => {
     if (!user || !driveDate) return
     setSaving(true)
@@ -123,7 +200,7 @@ export default function CreateDrivePage() {
       states: selectedStates, organizer_id: user.id,
       max_spots: parseInt(maxSpots) || null,
       description: description || null,
-      route_id: selectedRoute || null,
+      route_id: customRouteId || selectedRoute || null,
     }).select().single()
     setSaving(false)
     if (error) { alert(JSON.stringify(error)); return }
@@ -131,7 +208,7 @@ export default function CreateDrivePage() {
   }
 
   const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1))
-  const back = () => step === 0 ? router.back() : setStep(s => s - 1)
+  const back = () => step === -1 ? router.back() : step === 0 ? setStep(-1) : setStep(s => s - 1)
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 pb-24 md:pb-8">
@@ -229,6 +306,89 @@ export default function CreateDrivePage() {
         </div>
       )}
 
+     {step === -2 && (
+        <div className="animate-slide-up space-y-6">
+          <div>
+            <h2 className="font-display text-3xl text-white mb-1">Plan your route</h2>
+            <p className="text-gray-500 text-sm">Add your waypoints and we'll generate turn-by-turn directions</p>
+          </div>
+
+          {/* Waypoints */}
+          <div>
+            <p className="section-label mb-3">Waypoints</p>
+            <div className="space-y-2">
+              {customWaypoints.map((wp, i) => (
+                <div key={i} className="relative">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${
+                      i === 0 ? 'bg-green-900 text-green-400' :
+                      i === customWaypoints.length - 1 ? 'bg-amber-900 text-gold-400' :
+                      'bg-surface border border-surface-border text-gray-500'
+                    }`}>
+                      {i === 0 ? '▶' : i === customWaypoints.length - 1 ? '⚑' : i}
+                    </div>
+                    <input type="text"
+                      placeholder={i === 0 ? 'Start point...' : i === customWaypoints.length - 1 ? 'End point...' : 'Via...'}
+                      value={wp}
+                      onChange={e => {
+                        const updated = [...customWaypoints]
+                        updated[i] = e.target.value
+                        setCustomWaypoints(updated)
+                        searchCustomPlace(e.target.value, i)
+                      }}
+                      className="input-dark flex-1" />
+                    {customWaypoints.length > 2 && i !== 0 && i !== customWaypoints.length - 1 && (
+                      <button onClick={() => setCustomWaypoints(customWaypoints.filter((_, idx) => idx !== i))}
+                        className="text-gray-500 hover:text-white">
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                  {activeCustomInput === i && customSuggestions.length > 0 && (
+                    <div className="absolute top-full left-8 right-0 z-50 mt-1 card divide-y divide-surface-border shadow-xl">
+                      {customSuggestions.map((place, si) => (
+                        <button key={si} onClick={() => {
+                          const updated = [...customWaypoints]
+                          updated[i] = place.address
+                          setCustomWaypoints(updated)
+                          setCustomSuggestions([])
+                          setActiveCustomInput(null)
+                        }} className="w-full text-left px-4 py-3 hover:bg-surface-hover transition-colors">
+                          <div className="text-sm text-white font-medium">{place.name}</div>
+                          <div className="text-xs text-gray-500 mt-0.5 truncate">{place.address}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setCustomWaypoints([...customWaypoints.slice(0, -1), '', customWaypoints[customWaypoints.length - 1]])}
+              className="mt-2 flex items-center gap-2 text-xs text-gold-400 hover:text-gold-200 transition-colors">
+              <Plus size={12} /> Add a stop
+            </button>
+          </div>
+
+          <button onClick={generateCustomRoute} disabled={generatingCustom}
+            className="w-full btn-outline flex items-center justify-center gap-2 disabled:opacity-50">
+            <Navigation size={15} />
+            {generatingCustom ? 'Generating...' : 'Generate turn-by-turn directions'}
+          </button>
+
+          {customGenerated && (
+            <div className="card p-4">
+              <div className="text-sm font-medium text-white mb-1">Route generated ✓</div>
+              <div className="text-xs text-gray-500">{customMiles} miles · {Math.round(customMins / 60 * 10) / 10} hours · {customTurns.length} turns</div>
+            </div>
+          )}
+
+          <button onClick={() => setStep(3)} disabled={!customGenerated}
+            className="w-full btn-gold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            Next — Drive details <ArrowRight size={15} />
+          </button>
+        </div>
+      )}
+      
       {step === 1 && (
         <div className="animate-slide-up space-y-6">
           <div>
