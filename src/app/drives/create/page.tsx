@@ -136,6 +136,8 @@ export default function CreateDrivePage() {
     const valid = customWaypoints.filter(wp => wp.trim())
     if (valid.length < 2) { alert('Please add at least a start and end point'); return }
     setGeneratingCustom(true)
+      setMeetingPoint(valid[0])
+setDestination(valid[valid.length - 1])
     const origin = encodeURIComponent(valid[0])
     const dest = encodeURIComponent(valid[valid.length - 1])
     const waypts = valid.slice(1, -1).map(w => encodeURIComponent(w)).join('|')
@@ -384,6 +386,24 @@ export default function CreateDrivePage() {
 
           <button onClick={() => setStep(3)} disabled={!customGenerated}
             className="w-full btn-gold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            {customGenerated && customTurns.length > 0 && (
+  <div className="card p-4">
+    <p className="section-label mb-3">Route preview</p>
+    <div className="max-h-48 overflow-y-auto divide-y divide-surface-border">
+      {customTurns.slice(0, 6).map((turn: any, i: number) => (
+        <div key={i} className="flex items-start gap-3 py-2">
+          <div className="w-12 text-right flex-shrink-0">
+            <div className="text-xs font-mono text-gold-400">{turn.miles} mi</div>
+          </div>
+          <div className="text-xs text-gray-300">{turn.instruction}</div>
+        </div>
+      ))}
+      {customTurns.length > 6 && (
+        <div className="py-2 text-center text-xs text-gray-500">+{customTurns.length - 6} more turns</div>
+      )}
+    </div>
+  </div>
+)}
             Next — Drive details <ArrowRight size={15} />
           </button>
         </div>
