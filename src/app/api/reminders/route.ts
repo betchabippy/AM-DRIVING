@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       console.log('Auth users count:', authUsers?.users?.length)
       const authUser = authUsers?.users?.find((u: any) => u.id === rsvp.user_id)
       console.log('Found auth user:', authUser?.email)
-      if (!authUser?.email) continue if (!authUser?.email) continue
+      if (!authUser?.email) continue 
 
       const driveUrl = process.env.NEXT_PUBLIC_SITE_URL + '/drives/' + drive.id
       const departTime = drive.depart_time || '9:00 AM'
