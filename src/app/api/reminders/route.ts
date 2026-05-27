@@ -63,6 +63,11 @@ console.log('Resend response:', JSON.stringify(emailData))
           Authorization: 'Bearer ' + process.env.RESEND_API_KEY,
         },
         body: JSON.stringify({
+          })
+      const emailData = await emailRes.json()
+      console.log('Resend response:', JSON.stringify(emailData))
+
+      if (emailRes.ok) emailsSent.push(authUser.email)
           from: 'DoTheDrive <onboarding@resend.dev>',
           to: authUser.email,
           subject: 'Today is drive day — ' + drive.title,
