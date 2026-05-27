@@ -105,4 +105,4 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({ sent: emailsSent.length, emails: emailsSent })
-}
+}}
