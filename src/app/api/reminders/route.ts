@@ -55,6 +55,8 @@ export async function GET(request: NextRequest) {
       const meetingPoint = drive.meeting_point || 'See drive details'
 
       const emailRes = await fetch('https://api.resend.com/emails', {
+        const emailData = await emailRes.json()
+console.log('Resend response:', JSON.stringify(emailData))
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
